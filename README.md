@@ -292,7 +292,7 @@ Stores complete Scryfall card information:
 - **created_at** (TIMESTAMP) - Record creation time
 - **updated_at** (TIMESTAMP) - Last update time (auto-updated)
 
-#### `cardmarket_price_guid`
+#### `cardmarket_price_guide`
 Stores CardMarket pricing information:
 - **id** (SERIAL, PRIMARY KEY) - Auto-incremented ID
 - **scryfall_id** (INTEGER) - CardMarket product ID

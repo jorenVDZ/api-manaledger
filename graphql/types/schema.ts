@@ -1,5 +1,46 @@
 export const typeDefs = `#graphql
   """
+  CardMarket price data
+  """
+  type CardmarketPrice {
+    """Average price"""
+    avg: Float
+    
+    """Low price"""
+    low: Float
+    
+    """1-day average price"""
+    avg1: Float
+    
+    """7-day average price"""
+    avg7: Float
+    
+    """30-day average price"""
+    avg30: Float
+    
+    """Trend price"""
+    trend: Float
+    
+    """Average foil price"""
+    avgFoil: Float
+    
+    """Low foil price"""
+    lowFoil: Float
+    
+    """1-day average foil price"""
+    avg1Foil: Float
+    
+    """7-day average foil price"""
+    avg7Foil: Float
+    
+    """30-day average foil price"""
+    avg30Foil: Float
+    
+    """Trend foil price"""
+    trendFoil: Float
+  }
+
+  """
   Scryfall card image URIs
   """
   type ImageUris {
@@ -55,36 +96,7 @@ export const typeDefs = `#graphql
     predh: String
   }
 
-  """
-  Card prices in different currencies
-  """
-  type Prices {
-    usd: String
-    usdFoil: String
-    usdEtched: String
-    eur: String
-    eurFoil: String
-    tix: String
-  }
 
-  """
-  Related card URIs
-  """
-  type RelatedUris {
-    gatherer: String
-    tcgplayerInfiniteArticles: String
-    tcgplayerInfiniteDecks: String
-    edhrec: String
-  }
-
-  """
-  Purchase URIs for different platforms
-  """
-  type PurchaseUris {
-    tcgplayer: String
-    cardmarket: String
-    cardhoarder: String
-  }
 
   """
   Scryfall card - represents a Magic: The Gathering card
@@ -95,18 +107,6 @@ export const typeDefs = `#graphql
     
     """Oracle ID - shared across all prints of the same card"""
     oracleId: String
-    
-    """Multiverse IDs for this card"""
-    multiverseIds: [Int!]
-    
-    """MTG Arena ID"""
-    mtgoId: Int
-    
-    """MTG Online ID"""
-    mtgoFoilId: Int
-    
-    """TCGPlayer ID"""
-    tcgplayerId: Int
     
     """Cardmarket ID"""
     cardmarketId: Int
@@ -120,20 +120,8 @@ export const typeDefs = `#graphql
     """Release date"""
     releasedAt: String
     
-    """Scryfall URI"""
-    uri: String!
-    
     """Scryfall API URI"""
-    scryfallUri: String!
-    
-    """Card layout (normal, split, flip, transform, etc.)"""
-    layout: String!
-    
-    """High resolution scan available"""
-    highresImage: Boolean!
-    
-    """Image status"""
-    imageStatus: String
+    scryfallUri: String
     
     """Image URIs"""
     imageUris: ImageUris
@@ -156,9 +144,6 @@ export const typeDefs = `#graphql
     """Color identity"""
     colorIdentity: [String!]
     
-    """Color indicator"""
-    colorIndicator: [String!]
-    
     """Keywords"""
     keywords: [String!]
     
@@ -168,30 +153,6 @@ export const typeDefs = `#graphql
     """Legalities in various formats"""
     legalities: Legalities
     
-    """Reserved list card"""
-    reserved: Boolean!
-    
-    """Foil available"""
-    foil: Boolean!
-    
-    """Non-foil available"""
-    nonfoil: Boolean!
-    
-    """Finishes available"""
-    finishes: [String!]
-    
-    """Oversized card"""
-    oversized: Boolean!
-    
-    """Promo card"""
-    promo: Boolean!
-    
-    """Reprint"""
-    reprint: Boolean!
-    
-    """Variation of another card"""
-    variation: Boolean!
-    
     """Set code"""
     set: String!
     
@@ -199,28 +160,10 @@ export const typeDefs = `#graphql
     setName: String!
     
     """Set type"""
-    setType: String!
-    
-    """Set URI"""
-    setUri: String!
-    
-    """Set search URI"""
-    setSearchUri: String!
-    
-    """Scryfall set URI"""
-    scryfallSetUri: String!
-    
-    """Rulings URI"""
-    rulingsUri: String!
-    
-    """Prints search URI"""
-    printsSearchUri: String!
+    setType: String
     
     """Collector number"""
     collectorNumber: String!
-    
-    """Digital card"""
-    digital: Boolean!
     
     """Card rarity"""
     rarity: String!
@@ -228,56 +171,14 @@ export const typeDefs = `#graphql
     """Flavor text"""
     flavorText: String
     
-    """Card number (same as collector number)"""
-    cardBackId: String
-    
     """Artist"""
     artist: String
-    
-    """Artist IDs"""
-    artistIds: [String!]
-    
-    """Illustration ID"""
-    illustrationId: String
-    
-    """Border color"""
-    borderColor: String!
-    
-    """Frame version"""
-    frame: String!
-    
-    """Frame effects"""
-    frameEffects: [String!]
-    
-    """Security stamp"""
-    securityStamp: String
-    
-    """Full art"""
-    fullArt: Boolean!
-    
-    """Textless"""
-    textless: Boolean!
-    
-    """Booster eligible"""
-    booster: Boolean!
-    
-    """Story spotlight"""
-    storySpotlight: Boolean!
     
     """EDH rank"""
     edhrecRank: Int
     
     """Penny rank"""
     pennyRank: Int
-    
-    """Prices"""
-    prices: Prices
-    
-    """Related URIs"""
-    relatedUris: RelatedUris
-    
-    """Purchase URIs"""
-    purchaseUris: PurchaseUris
     
     """Power (for creatures)"""
     power: String
@@ -288,17 +189,31 @@ export const typeDefs = `#graphql
     """Loyalty (for planeswalkers)"""
     loyalty: String
     
-    """Life modifier (for Vanguard)"""
-    lifeModifier: String
+    """Games this card is available in"""
+    games: [String!]
     
-    """Hand modifier (for Vanguard)"""
-    handModifier: String
+    """Whether this card is a game changer"""
+    gameChanger: Boolean
+
+    # ===== Computed/Custom Fields =====
+    """
+    Whether the card is legal in Commander format
+    """
+    isCommanderLegal: Boolean!
     
-    """Produced mana"""
-    producedMana: [String!]
-    
-    """All parts (for split/transform cards)"""
-    allParts: [String!]
+    """
+    Price data from CardMarket (if available)
+    """
+    cardmarketPrice: CardmarketPrice
+  }
+
+  """
+  Card ruling from Scryfall
+  """
+  type Ruling {
+    source: String!
+    publishedAt: String!
+    comment: String!
   }
 
   """

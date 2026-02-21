@@ -252,7 +252,7 @@ async function importPriceData(): Promise<ImportResult> {
     updated_at: new Date().toISOString()
   }));
 
-  return await importInBatches('cardmarket_price_guid', priceGuides);
+  return await importInBatches('cardmarket_price_guide', priceGuides);
 }
 
 /**
@@ -278,7 +278,7 @@ async function clearTables(): Promise<void> {
       // Clear price data first
       console.log('  🔄 Deleting price data...');
       const { error: priceError, count: priceCount } = await client
-        .from('cardmarket_price_guid')
+        .from('cardmarket_price_guide')
         .delete()
         .not('id', 'is', null); // Delete all where id is not null (i.e., all records)
       
