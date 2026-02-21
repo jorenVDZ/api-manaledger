@@ -46,8 +46,8 @@ export const collectionRepository = {
     const { data: result, error } = await supabase
       .from('collection_items')
       .insert({
-        userId: userId,
-        scryfallId: input.scryfallId,
+        user_id: userId,
+        scryfall_id: input.scryfallId,
         data,
       })
       .select()
@@ -69,11 +69,11 @@ export const collectionRepository = {
 
     return {
       id: result.id,
-      userId: result.userId,
-      scryfallId: result.scryfallId,
+      userId: result.user_id,
+      scryfallId: result.scryfall_id,
       data: result.data,
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
     } as CollectionItem;
   },
 
@@ -86,8 +86,8 @@ export const collectionRepository = {
     const { data, error } = await supabase
       .from('collection_items')
       .select('*')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false });
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
@@ -95,11 +95,11 @@ export const collectionRepository = {
 
     return (data || []).map(item => ({
       id: item.id,
-      userId: item.userId,
-      scryfallId: item.scryfallId,
+      userId: item.user_id,
+      scryfallId: item.scryfall_id,
       data: item.data,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
     })) as CollectionItem[];
   },
 
@@ -113,7 +113,7 @@ export const collectionRepository = {
       .from('collection_items')
       .select('*')
       .eq('id', itemId)
-      .eq('userId', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -125,11 +125,11 @@ export const collectionRepository = {
 
     return {
       id: data.id,
-      userId: data.userId,
-      scryfallId: data.scryfallId,
+      userId: data.user_id,
+      scryfallId: data.scryfall_id,
       data: data.data,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     } as CollectionItem;
   },
 
@@ -142,8 +142,8 @@ export const collectionRepository = {
     const { data, error } = await supabase
       .from('collection_items')
       .select('*')
-      .eq('userId', userId)
-      .eq('scryfallId', scryfallId);
+      .eq('user_id', userId)
+      .eq('scryfall_id', scryfallId);
 
     if (error) {
       throw error;
@@ -151,11 +151,11 @@ export const collectionRepository = {
 
     return (data || []).map(item => ({
       id: item.id,
-      userId: item.userId,
-      scryfallId: item.scryfallId,
+      userId: item.user_id,
+      scryfallId: item.scryfall_id,
       data: item.data,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
     })) as CollectionItem[];
   },
 
@@ -185,7 +185,7 @@ export const collectionRepository = {
       .from('collection_items')
       .update({ data: updatedData })
       .eq('id', itemId)
-      .eq('userId', userId)
+      .eq('user_id', userId)
       .select()
       .single();
 
@@ -198,11 +198,11 @@ export const collectionRepository = {
 
     return {
       id: data.id,
-      userId: data.userId,
-      scryfallId: data.scryfallId,
+      userId: data.user_id,
+      scryfallId: data.scryfall_id,
       data: data.data,
-      createdAt: data.createdAt,
-      updatedAt: data.updatedAt,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     } as CollectionItem;
   },
 
@@ -216,7 +216,7 @@ export const collectionRepository = {
       .from('collection_items')
       .delete()
       .eq('id', itemId)
-      .eq('userId', userId);
+      .eq('user_id', userId);
 
     if (error) {
       throw error;
@@ -240,7 +240,7 @@ export const collectionRepository = {
     const { data, error } = await supabase
       .from('collection_items')
       .select('data')
-      .eq('userId', userId);
+      .eq('user_id', userId);
 
     if (error) {
       throw error;
@@ -272,13 +272,13 @@ export const collectionRepository = {
     const { data, error } = await supabase
       .from('collection_items')
       .select('scryfall_id')
-      .eq('userId', userId);
+      .eq('user_id', userId);
 
     if (error) {
       throw error;
     }
 
-    const uniqueCards = new Set((data || []).map((item: any) => item.scryfallId));
+    const uniqueCards = new Set((data || []).map((item: any) => item.scryfall_id));
     return uniqueCards.size;
   },
 
@@ -296,7 +296,7 @@ export const collectionRepository = {
     const { count, error: countError } = await supabase
       .from('collection_items')
       .select('*', { count: 'exact', head: true })
-      .eq('userId', userId);
+      .eq('user_id', userId);
 
     if (countError) {
       throw countError;
@@ -306,8 +306,8 @@ export const collectionRepository = {
     const { data, error } = await supabase
       .from('collection_items')
       .select('*')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -317,11 +317,11 @@ export const collectionRepository = {
     return {
       items: (data || []).map(item => ({
         id: item.id,
-        userId: item.userId,
-        scryfallId: item.scryfallId,
+        userId: item.user_id,
+        scryfallId: item.scryfall_id,
         data: item.data,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
       })) as CollectionItem[],
       total: count || 0,
     };

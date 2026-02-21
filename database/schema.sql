@@ -8,16 +8,16 @@ CREATE TABLE IF NOT EXISTS scryfall_data (
     id TEXT PRIMARY KEY, -- Scryfall uses UUID strings
     name VARCHAR(255) NOT NULL,
     data JSONB NOT NULL, -- Full JSON data for flexibility
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS cardmarket_price_guide (
     id SERIAL PRIMARY KEY,
-    scryfallId INTEGER NOT NULL, -- CardMarket product ID
+    scryfall_id INTEGER NOT NULL, -- CardMarket product ID
     data JSONB NOT NULL, -- Full pricing data
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- Note: Foreign key removed as Scryfall and CardMarket use different ID systems
 -- You can link them via card names or create a mapping table if needed
@@ -29,9 +29,9 @@ CREATE TABLE IF NOT EXISTS cardmarket_price_guide (
 -- Primary lookup indexes
 CREATE INDEX idx_scryfall_name ON scryfall_data(name);
 CREATE INDEX idx_scryfall_name_trgm ON scryfall_data USING GIN (name gin_trgm_ops); -- For fast fuzzy search
-CREATE INDEX idx_scryfall_created ON scryfall_data(createdAt);
-CREATE INDEX idx_price_scryfall_id ON cardmarket_price_guide(scryfallId);
-CREATE INDEX idx_price_created ON cardmarket_price_guide(createdAt);
+CREATE INDEX idx_scryfall_created ON scryfall_data(created_at);
+CREATE INDEX idx_price_scryfall_id ON cardmarket_price_guide(scryfall_id);
+CREATE INDEX idx_price_created ON cardmarket_price_guide(created_at);
 
 -- GIN indexes for JSONB - enables fast containment and existence queries
 CREATE INDEX idx_scryfall_data_gin ON scryfall_data USING GIN (data);
@@ -54,7 +54,7 @@ CREATE INDEX idx_price_trend ON cardmarket_price_guide (((data->>'trend')::numer
 
 -- Composite indexes for common query patterns
 CREATE INDEX idx_scryfall_name_set ON scryfall_data (name, (data->>'set'));
-CREATE INDEX idx_price_scryfall_updated ON cardmarket_price_guide (scryfallId, updatedAt DESC);
+CREATE INDEX idx_price_scryfall_updated ON cardmarket_price_guide (scryfall_id, updated_at DESC);
 
 -- =============================================================================
 -- Triggers for Auto-Update Timestamps
@@ -63,7 +63,7 @@ CREATE INDEX idx_price_scryfall_updated ON cardmarket_price_guide (scryfallId, u
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updatedAt = CURRENT_TIMESTAMP;
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -98,18 +98,18 @@ $$ LANGUAGE plpgsql;
 -- Table to store individual cards in a user's collection
 CREATE TABLE IF NOT EXISTS collection_items (
     id SERIAL PRIMARY KEY,
-    userId UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    scryfallId TEXT NOT NULL REFERENCES scryfall_data(id) ON DELETE CASCADE,
-    data JSONB NOT NULL, -- Contains: id, userId, scryfallId, amount, isFoil, pricePaid, fromBooster
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    scryfall_id TEXT NOT NULL REFERENCES scryfall_data(id) ON DELETE CASCADE,
+    data JSONB NOT NULL, -- Contains: id, userId, scryfallId, amount, isFoil, pricePaid, fromBooster (in camelCase)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for collection_items
-CREATE INDEX idx_collection_items_user_id ON collection_items(userId);
-CREATE INDEX idx_collection_items_scryfall_id ON collection_items(scryfallId);
-CREATE INDEX idx_collection_items_user_card ON collection_items(userId, scryfallId);
-CREATE INDEX idx_collection_items_created ON collection_items(createdAt);
+CREATE INDEX idx_collection_items_user_id ON collection_items(user_id);
+CREATE INDEX idx_collection_items_scryfall_id ON collection_items(scryfall_id);
+CREATE INDEX idx_collection_items_user_card ON collection_items(user_id, scryfall_id);
+CREATE INDEX idx_collection_items_created ON collection_items(created_at);
 
 -- GIN index for JSONB data
 CREATE INDEX idx_collection_items_data_gin ON collection_items USING GIN (data);

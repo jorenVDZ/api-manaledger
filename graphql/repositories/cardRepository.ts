@@ -90,7 +90,7 @@ export const cardRepository = {
     const { data, error } = await supabase
       .from('cardmarket_price_guide')
       .select('data')
-      .eq('scryfallId', cardmarketId)
+      .eq('scryfall_id', cardmarketId)
       .single();
 
     if (error || !data) {

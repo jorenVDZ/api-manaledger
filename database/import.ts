@@ -241,8 +241,8 @@ async function importScryfallData(): Promise<ImportResult> {
     id: card.id, // Use Scryfall's UUID as the ID
     name: card.name,
     data: toCamelCase(card), // Convert to camelCase and store in JSONB
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }));
 
   return await importInBatches('scryfall_data', products);
@@ -262,10 +262,10 @@ async function importPriceData(): Promise<ImportResult> {
   // Transform data to match database schema with camelCase
   const priceGuides = jsonData.priceGuides.map((price) => ({
     // id is auto-generated
-    scryfallId: price.idProduct,
+    scryfall_id: price.idProduct,
     data: toCamelCase(price), // Convert to camelCase and store in JSONB
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }));
 
   return await importInBatches('cardmarket_price_guide', priceGuides);

@@ -9,18 +9,18 @@
 -- Table to store individual cards in a user's collection
 CREATE TABLE IF NOT EXISTS collection_items (
     id SERIAL PRIMARY KEY,
-    userId UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    scryfallId TEXT NOT NULL REFERENCES scryfall_data(id) ON DELETE CASCADE,
-    data JSONB NOT NULL, -- Contains: id, userId, scryfallId, amount, isFoil, pricePaid, fromBooster
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    scryfall_id TEXT NOT NULL REFERENCES scryfall_data(id) ON DELETE CASCADE,
+    data JSONB NOT NULL, -- Contains: id, userId, scryfallId, amount, isFoil, pricePaid, fromBooster (in camelCase)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes for collection_items
-CREATE INDEX idx_collection_items_user_id ON collection_items(userId);
-CREATE INDEX idx_collection_items_scryfall_id ON collection_items(scryfallId);
-CREATE INDEX idx_collection_items_user_card ON collection_items(userId, scryfallId);
-CREATE INDEX idx_collection_items_created ON collection_items(createdAt);
+CREATE INDEX idx_collection_items_user_id ON collection_items(user_id);
+CREATE INDEX idx_collection_items_scryfall_id ON collection_items(scryfall_id);
+CREATE INDEX idx_collection_items_user_card ON collection_items(user_id, scryfall_id);
+CREATE INDEX idx_collection_items_created ON collection_items(created_at);
 
 -- GIN index for JSONB data
 CREATE INDEX idx_collection_items_data_gin ON collection_items USING GIN (data);
