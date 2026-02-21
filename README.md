@@ -29,7 +29,7 @@ Add your Supabase credentials:
 ```env
 PORT=3000
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
+SUPABASE_SECRET_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-key
 ```
 
@@ -143,11 +143,11 @@ PORT=3000
 
 # Supabase Configuration
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
+SUPABASE_SECRET_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-key
 ```
 
-- `SUPABASE_SERVICE_KEY` - Used for import operations (requires admin permissions)
+- `SUPABASE_SECRET_KEY` - Used for import operations (requires admin permissions)
 - `SUPABASE_ANON_KEY` - Used for read operations (safer for public endpoints)
 
 ## Database
@@ -262,7 +262,7 @@ npm run db:sync:upsert   # Upsert without clearing
 
 ## Troubleshooting
 
-### "SUPABASE_URL and SUPABASE_SERVICE_KEY must be set"
+### "SUPABASE_URL and SUPABASE_SECRET_KEY must be set"
 Ensure your `.env` file has the correct Supabase credentials from your project settings.
 
 ### Import appears stuck
