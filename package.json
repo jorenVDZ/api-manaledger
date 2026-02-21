@@ -13,24 +13,30 @@
     "get-token": "ts-node scripts/get-token.ts",
     "vercel-build": "tsc"
   },
-  "keywords": ["cardmarket", "api", "manaledger"],
+  "keywords": [
+    "cardmarket",
+    "api",
+    "manaledger"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "dotenv": "^16.3.1",
-    "swagger-ui-express": "^5.0.0",
-    "swagger-jsdoc": "^6.2.8",
+    "@apollo/server": "^4.13.0",
+    "@graphql-tools/schema": "^10.0.31",
+    "@supabase/supabase-js": "^2.39.0",
+    "@types/cors": "^2.8.19",
     "axios": "^1.6.0",
-    "@supabase/supabase-js": "^2.39.0"
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "graphql": "^16.12.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2",
-    "@types/node": "^20.10.6",
     "@types/express": "^4.17.21",
-    "@types/swagger-ui-express": "^4.1.6",
-    "@types/swagger-jsdoc": "^6.0.4"
+    "@types/graphql": "^14.2.3",
+    "@types/node": "^20.10.6",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   }
 }

@@ -1,44 +1,38 @@
 # ManaLedger API
 
-A TypeScript/Node.js API for managing Magic: The Gathering card data from Scryfall and CardMarket, stored in Supabase.
+A TypeScript/Node.js GraphQL API for managing Magic: The Gathering card data from Scryfall and CardMarket, stored in Supabase.
 
 ## Features
 
-- 📚 Imports Scryfall's unique artwork bulk data (~85,000 cards)
-- 💰 Imports CardMarket price guide data (~450,000 price entries)
-- 🗄️ Stores data in Supabase with optimized JSONB indexing
-- 🔄 Async background imports with status tracking
-- ⏰ Automated scheduled syncs via GitHub Actions
-- 📖 Interactive Swagger API documentation
-- � Supabase authentication for secure API access
-- �🔷 Written in TypeScript for type safety and better developer experience
+- 🚀 **GraphQL API** with Apollo Server for flexible, efficient data queries
+- 📚 **Scryfall Integration** - Imports unique artwork bulk data (~85,000 cards)
+- 💰 **CardMarket Pricing** - Imports price guide data (~450,000 price entries)
+- 🗄️ **Supabase Backend** - PostgreSQL storage with optimized JSONB indexing
+- 🔄 **Batch Import System** - Smart batching with retry logic and progress tracking
+- ⏰ **Automated Syncs** - GitHub Actions workflow for scheduled data updates
+- 🔐 **Supabase Authentication** - Secure JWT-based authentication
+- 📖 **Interactive Playground** - Built-in Apollo Sandbox for API exploration
+- ☁️ **Serverless Ready** - Configured for Vercel deployment
+- 🔷 **Full TypeScript** - Type safety throughout with strict mode
 
 ## Quick Start
 
-### Automated Scheduled Syncs (GitHub Actions)
+### Prerequisites
 
-**Recommended setup**:
-1. Fork/clone this repo to GitHub
-2. Add repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-3. Workflow runs automatically daily at 2 AM UTC
+- Node.js 20+ 
+- Supabase account (free tier works)
+- At least 4GB available RAM for data imports
 
-See **[CRON_SETUP.md](CRON_SETUP.md)** for alternative scheduling options.
+### 1. Install Dependencies
 
-### Manual Setup
-
-1. **Install dependencies:**
 ```bash
 npm install
 ```
 
-2. **Configure environment variables:**
+### 2. Configure Environment
 
-Create a `.env` file based on `.env.example`:
-```bash
-cp .env.example .env
-```
+Create a `.env` file in the root directory:
 
-Add your Supabase credentials:
 ```env
 PORT=3000
 SUPABASE_URL=https://your-project.supabase.co
@@ -46,263 +40,574 @@ SUPABASE_SECRET_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-key
 ```
 
-3. **Set up database:**
+Get these credentials from your Supabase project settings.
+
+### 3. Set Up Database
 
 Run the SQL schema in your Supabase project:
-- Open Supabase SQL Editor
-- Copy and paste contents of `database/schema.sql`
+- Navigate to the Supabase SQL Editor
+- Copy and paste the contents of `database/schema.sql`
 - Execute the script
 
-4. **Import data:**
+This creates the required tables, indexes, triggers, and helper functions.
 
-Use the CLI to import data:
+### 4. Import Data
+
+Run the initial data sync:
+
 ```bash
-npm run db:sync
+npm run db:sync          # Full sync (clears existing data)
+npm run db:sync:upsert   # Upsert mode (keeps existing data)
 ```
 
-Or set up automated syncs with GitHub Actions (see [CRON_SETUP.md](CRON_SETUP.md)).
+This downloads and imports Scryfall and CardMarket data. Takes 5-15 minutes depending on network speed.
 
-## API Documentation
+### 5. Start the Server
 
-Interactive API documentation is available via Swagger UI:
+Development mode (with auto-reload):
+```bash
+npm run dev
+```
 
-**http://localhost:3000/api-docs**
+Production mode:
+```bash
+npm run build
+npm start
+```
 
-Once the server is running, visit this URL to explore all endpoints, view request/response schemas, and test the API directly from your browser.
+The server will be available at `http://localhost:3000`
+
+## GraphQL API
+
+### Endpoint
+
+```
+http://localhost:3000/graphql
+```
+
+### Interactive Playground
+
+Visit `/graphql` in your browser to access the Apollo Sandbox where you can:
+- Explore the complete schema documentation
+- Test queries with auto-complete
+- View query history
+- Set authentication headers
+
+### Available Queries
+
+#### `card(scryfallId: ID!): Card!`
+Get detailed card information by Scryfall ID. Returns complete card data including images, legalities, prices, and metadata.
+
+**Authentication**: Required
+
+**Example**:
+```graphql
+query GetCard($scryfallId: ID!) {
+  card(scryfallId: $scryfallId) {
+    id
+    name
+    manaCost
+    typeLine
+    oracleText
+    power
+    toughness
+    rarity
+    setName
+    imageUris {
+      normal
+      large
+    }
+    prices {
+      usd
+      eur
+    }
+  }
+}
+```
+
+#### `cards(limit: Int, offset: Int): CardsConnection!`
+Get paginated list of all cards. Returns cards with pagination metadata.
+
+**Authentication**: Required
+
+**Parameters**:
+- `limit` (default: 20, max: 100) - Number of cards to return
+- `offset` (default: 0) - Number of cards to skip
+
+**Example**:
+```graphql
+query GetCards($limit: Int, $offset: Int) {
+  cards(limit: $limit, offset: $offset) {
+    cards {
+      id
+      name
+      setName
+      rarity
+    }
+    total
+    hasMore
+  }
+}
+```
+
+#### `searchCards(query: String!, limit: Int): [Card!]!`
+Search for cards by name using fuzzy matching.
+
+**Authentication**: Required
+
+**Parameters**:
+- `query` - Search string (case-insensitive partial match)
+- `limit` (default: 20, max: 100) - Maximum results to return
+
+**Example**:
+```graphql
+query SearchCards($query: String!, $limit: Int) {
+  searchCards(query: $query, limit: $limit) {
+    id
+    name
+    setName
+    imageUris {
+      small
+    }
+  }
+}
+```
 
 ### Authentication
 
-The API is secured with Supabase authentication. Most endpoints require a valid JWT token. See **[AUTH_SETUP.md](AUTH_SETUP.md)** for detailed instructions on:
-- Setting up authentication
-- Getting access tokens
-- Making authenticated requests
-- TeAuthentication
+Most GraphQL queries require authentication. Include your Supabase JWT token in the Authorization header:
 
-#### Get Current User
-- **GET** `/api/auth/me`
-- 🔒 Requires authentication
-- Returns the authenticated user's profile information
-
-#### Verify Token
-- **GET** `/api/auth/verify`
-- Checks if the provided token is valid (optional authentication)
-
-### Card Data
-
-#### Get Card by Scryfall ID
-- **GET** `/api/card/:scryfallId`
-- 🔒 Requires authentication
-### Health Check
-- **GET** `/health`
-- Returns the API health status
-
-### Card Data
- (requires authentication)
-curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  http://localhost:3000/api/card/7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0
-
-# Get current user info
-curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  http://localhost:3000/api/auth/me
+```
+Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
-**Note:** See [AUTH_SETUP.md](AUTH_SETUP.md) for how to obtain authentication tokens.*GET** `/api/card/:scryfallId`
-- Retrieves card information by Scryfall UUID
-- Re├── auth.ts                 # Authentication endpoints
-│   └── card.ts                 # Card API routes (Supabase queries)
-├── middleware/
-│   └── auth.ts                 # Authentication middleware
-├── services/
-│   └── supabase.ts             # Supabase client configuration
-├── database/
-│   ├── schema.sql              # PostgreSQL database schema
-│   └── import.ts               # Import script for syncing data
-├── .github/
-│   └── workflows/
-│       └── sync-database.yml   # GitHub Actions automated sync
-├── dist/                       # Compiled JavaScript output
-├── tsconfig.json               # TypeScript configuration
-├── package.json
-├── .env.example
-├── AUTH_SETUP.md               # Authentication setup guid
+#### Getting a Token
+
+1. **Sign up for an account**:
+```bash
+npm run signup
+```
+
+2. **Get an access token**:
+```bash
+npm run get-token
+```
+
+The token will be displayed in the console. Copy it and use it in your requests.
+
+#### Using the Token
+
+**In Apollo Sandbox**:
+1. Click "Headers" at the bottom
+2. Add header: `Authorization: Bearer YOUR_TOKEN`
+
+**With cURL**:
+```bash
+curl -X POST http://localhost:3000/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"query":"query { cards(limit: 5) { cards { name } } }"}'
+```
+
+**With fetch API**:
+```javascript
+const response = await fetch('http://localhost:3000/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    query: `
+      query GetCard($id: ID!) {
+        card(scryfallId: $id) {
+          name
+          manaCost
+        }
+      }
+    `,
+    variables: { id: 'card-id-here' }
+  })
+});
+
+const data = await response.json();
+```
+
+### Health Check
+
+A simple health check endpoint is available without authentication:
+
+```
+GET http://localhost:3000/health
+```
+
+Returns:
+```json
+{
+  "status": "OK",
+  "message": "API is running"
+}
+```
 
 ## Project Structure
 
 ```
 api-manaledger/
-├── index.ts                    # Main server file
-├── swagger.ts                  # Swagger/OpenAPI configuration
-├── routes/
-│   └── card.ts                 # Card API routes (Supabase queries)
+├── index.ts                    # Main server with Apollo setup
+├── graphql/
+│   ├── schema.ts              # GraphQL type definitions
+│   ├── resolvers.ts           # Query resolvers
+│   └── context.ts             # Authentication context
+├── middleware/
+│   └── auth.ts                # Express authentication middleware
+├── services/
+│   └── supabase.ts            # Supabase client configuration
 ├── database/
-│   ├── schema.sql              # PostgreSQL database schema
-│   └── import.ts               # Import script for syncing data
+│   ├── schema.sql             # PostgreSQL database schema
+│   └── import.ts              # Data import script
+├── scripts/
+│   ├── signup.ts              # User registration CLI
+│   └── get-token.ts           # Token generator CLI
 ├── .github/
 │   └── workflows/
-│       └── sync-database.yml   # GitHub Actions automated sync
-├── dist/                       # Compiled JavaScript output
-├── tsconfig.json               # TypeScript configuration
+│       └── sync-database.yml  # Automated sync workflow
+├── dist/                      # Compiled JavaScript (generated)
+├── tsconfig.json              # TypeScript configuration
+├── vercel.json                # Vercel deployment config
 ├── package.json
-├── .env.example
 └── README.md
 ```
 
-## Environment Configuration
+## Database Schema
 
-Configure the following variables in your `.env` file:
-
-```env
-PORT=3000
-
-# Supabase Configuration
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SECRET_KEY=your-service-role-key
-SUPABASE_ANON_KEY=your-anon-key
-```
-
-- `SUPABASE_SECRET_KEY` - Used for import operations (requires admin permissions)
-- `SUPABASE_ANON_KEY` - Used for read operations (safer for public endpoints)
-
-## Database
-
-The application uses Supabase (PostgreSQL) with JSONB storage for flexible card data.
+The application uses Supabase (PostgreSQL) with JSONB storage for flexible, high-performance card data storage.
 
 ### Tables
 
 #### `scryfall_data`
-Stores complete Scryfall card data:
-- `id` (TEXT) - Scryfall UUID (primary key)
-- `name` (VARCHAR) - Card name
-- `data` (JSONB) - Complete card object from Scryfall
-- `created_at`, `updated_at` (TIMESTAMP)
+Stores complete Scryfall card information:
+- **id** (TEXT, PRIMARY KEY) - Scryfall UUID
+- **name** (VARCHAR) - Card name
+- **data** (JSONB) - Complete card object with all Scryfall fields
+- **created_at** (TIMESTAMP) - Record creation time
+- **updated_at** (TIMESTAMP) - Last update time (auto-updated)
 
 #### `cardmarket_price_guid`
-Stores CardMarket pricing data:
-- `id` (SERIAL) - Auto-generated ID (primary key)
-- `scryfall_id` (INTEGER) - CardMarket product ID
-- `data` (JSONB) - Complete price object
-- `created_at`, `updated_at` (TIMESTAMP)
+Stores CardMarket pricing information:
+- **id** (SERIAL, PRIMARY KEY) - Auto-incremented ID
+- **scryfall_id** (INTEGER) - CardMarket product ID
+- **data** (JSONB) - Complete price guide object
+- **created_at** (TIMESTAMP) - Record creation time
+- **updated_at** (TIMESTAMP) - Last update time (auto-updated)
 
-> **Note**: Scryfall and CardMarket use different ID systems. Link cards via card names or create a mapping table.
+> **Note**: Scryfall and CardMarket use different ID systems. Cards can be linked via name matching or by creating a custom mapping table.
 
 ### Indexes
 
-The schema includes optimized indexes for fast queries:
-- **GIN indexes** on JSONB columns for containment queries
-- **Card name, set, rarity** for filtering
-- **Price fields** (avg, trend) for range queries
-- **Composite indexes** for common query patterns
+The schema includes optimized indexes for high-performance queries:
 
-### Performance
+**Primary Indexes**:
+- Card name and creation date lookups
+- CardMarket product IDs
 
-- **Import Speed**: 5-15 minutes for full sync (network dependent)
-- **Batch Size**: 500 records per request (optimized to avoid timeouts)
-- **Retry Logic**: Automatic retry (up to 3 attempts) for timeout errors
-- **Storage**: ~2GB for complete dataset
-- Real-time progress tracking during imports
+**JSONB GIN Indexes**:
+- Enables fast containment and existence queries on full JSON data
 
-## Data Sources
+**JSON Path Indexes** on frequently queried fields:
+- **Scryfall**: set name, set code, rarity, colors, type line, mana cost, oracle ID
+- **Prices**: product ID, category, average price, trend
+
+**Composite Indexes**:
+- Name + set combinations
+- Product ID + update date for price history
+
+### Performance Characteristics
+
+- **Import Speed**: 5-15 minutes for full dataset (network dependent)
+- **Batch Size**: 500 records per batch (optimized for throughput)
+- **Retry Logic**: Automatic retry (up to 3 attempts) with exponential backoff
+- **Storage**: ~2GB for complete dataset (~535,000 records)
+- **Query Speed**: Sub-100ms for indexed lookups
+
+## Data Sources & Import System
+
+## Data Sources & Import System
 
 ### Scryfall Bulk Data
 - **API**: https://api.scryfall.com/bulk-data
-- **Type**: Unique Artwork dataset
+- **Dataset**: Unique Artwork (all-time unique prints)
 - **Size**: ~250MB compressed (gzipped), ~1.5GB uncompressed
-- **Records**: ~85,000+ unique cards
-- **Update Frequency**: Daily (automatically fetches latest)
-- **Content**: Complete card objects with images, text, legalities, etc.
+- **Records**: ~85,000+ unique card prints
+- **Update Frequency**: Daily
+- **Content**: Complete card objects including:
+  - Card images (multiple sizes and formats)
+  - Oracle text, rulings, and legalities
+  - Set information and metadata
+  - Artist information
+  - Prices in multiple currencies
 
 ### CardMarket Price Guide
-- **API**: https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json
+- **Source**: https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json
 - **Size**: ~60MB uncompressed
 - **Records**: ~450,000+ price entries
-- **Update Frequency**: Multiple times per day
-- **Content**: Current market prices (avg, low, trend) for regular and foil cards
+- **Update Frequency**: Multiple times daily
+- **Content**: Current market prices including:
+  - Average, low, and trend prices
+  - Regular and foil prices
+  - Product IDs and categories
 
-The import script automatically:
-1. Fetches bulk data metadata from Scryfall
-2. Downloads and decompresses the latest datasets
-3. Imports data in batches with progress tracking
+### Import Process
 
-## Import Methods
+The import script (`database/import.ts`) automatically:
 
-### Via GitHub Actions (Automated - Recommended)
-Database syncs run automatically on schedule:
-- Configured to run daily at 2 AM UTC
-- Uses upsert mode (no clearing)
-- View logs in GitHub Actions tab
-- See [CRON_SETUP.md](CRON_SETUP.md) for setup instructions
+1. **Fetches metadata** from Scryfall's bulk data API
+2. **Downloads latest datasets** (compressed formats)
+3. **Decompresses data** in-memory
+4. **Parses JSON** structures
+5. **Imports in batches** (500 records per batch with 100ms delay)
+6. **Retries on failure** (up to 3 attempts with exponential backoff)
+7. **Reports progress** in real-time with percentage completion
 
-### Via CLI (Manual)
-Direct execution from your local machine:
+### Running Imports
+
+**Full Sync** (clears tables, fresh import):
 ```bash
-npm run db:sync          # Full sync with clearing
-npm run db:sync:upsert   # Upsert without clearing (faster)
+npm run db:sync
 ```
 
-**Important Notes:**
-- Console shows real-time progress with percentages during CLI execution
-- Requires at least **4GB available RAM** for large file processing
-- Typically takes 5-15 minutes depending on network speed
-- Requires at least **4GB available RAM** for large file processing
+**Upsert Mode** (updates existing, adds new):
+```bash
+npm run db:sync:upsert
+```
 
-## Automated Scheduling
+**Command-line Options**:
+- `--no-clear` - Runs in upsert mode (same as db:sync:upsert)
 
-Automated syncs run via **GitHub Actions** on a schedule:
+**Console Output**:
+- Real-time progress with percentages
+- Batch-by-batch status updates
+- Success/error counts
+- Total duration and records processed
 
-**Quick Start**:
-1. Add GitHub repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
-2. Push the workflow file (already included in `.github/workflows/`)
-3. Runs automatically daily at 2 AM UTC
+**Requirements**:
+- Node.js 20+
+- 4GB+ available RAM
+- Stable internet connection (250MB+ download)
+- Supabase project with schema set up
 
-See **[CRON_SETUP.md](CRON_SETUP.md)** for detailed setup instructions and customization options.
+## Automated Scheduling with GitHub Actions
+
+Database syncs can run automatically on a schedule using GitHub Actions.
+
+### Setup
+
+1. **Push your code to GitHub** (if not already done)
+
+2. **Add repository secrets**:
+   - Go to Settings → Secrets and variables → Actions
+   - Add `SUPABASE_URL` (your Supabase project URL)
+   - Add `SUPABASE_SECRET_KEY` (your service role key)
+
+3. **Enable GitHub Actions** (if disabled):
+   - Go to Actions tab → Enable workflows
+
+The workflow file (`.github/workflows/sync-database.yml`) is already configured.
+
+### Schedule
+
+**Default**: Runs daily at 2:00 AM UTC
+
+**Cron format**: `0 2 * * *`
+
+### Manual Trigger
+
+You can manually trigger a sync:
+1. Go to Actions tab
+2. Click "Database Sync" workflow
+3. Click "Run workflow"
+4. Select branch and confirm
+
+### Workflow Features
+
+- **Timeout**: 30 minutes (generous for slow networks)
+- **Mode**: Upsert (preserves existing data)
+- **Node.js**: Version 20 with npm caching
+- **Logs**: Full console output available in Actions tab
+- **Notifications**: Displays failure messages with run links
+
+### Customizing the Schedule
+
+Edit `.github/workflows/sync-database.yml` and change the cron expression:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Change this line
+```
+
+**Examples**:
+- `0 */6 * * *` - Every 6 hours
+- `0 0 * * 0` - Weekly on Sunday at midnight
+- `0 12 * * 1-5` - Weekdays at noon
+
+Use [crontab.guru](https://crontab.guru/) to build cron schedules.
+
+## Development
+
+### Available Scripts
+
+```bash
+# Install dependencies
+npm install
+
+# Development server (auto-reload with ts-node)
+npm run dev
+
+# Build TypeScript to JavaScript
+npm run build
+
+# Production server (run compiled JS)
+npm start
+
+# Database sync (full/clear mode)
+npm run db:sync
+
+# Database sync (upsert mode)
+npm run db:sync:upsert
+
+# User registration
+npm run signup
+
+# Get authentication token
+npm run get-token
+```
+
+### TypeScript Configuration
+
+The project uses **strict TypeScript** for maximum type safety:
+
+- **Target**: ES2020
+- **Module**: CommonJS
+- **Output**: `dist/` directory
+- **Strict mode**: Enabled
+- **Additional checks**: No unused locals/parameters, implicit returns, fallthrough cases
+
+All source files are TypeScript (`.ts`). The compiled JavaScript goes to `dist/` (gitignored).
+
+### Development Workflow
+
+1. Make changes to `.ts` files
+2. Run `npm run dev` for hot-reloading
+3. Test queries in Apollo Sandbox at `/graphql`
+4. Build with `npm run build` before deploying
+
+## Deployment
+
+### Vercel (Serverless)
+
+The project is configured for Vercel with `vercel.json`:
+
+```json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "index.ts"
+    }
+  ]
+}
+```
+
+**Deploy steps**:
+
+1. Install Vercel CLI: `npm i -g vercel`
+2. Run `vercel` in project directory
+3. Follow prompts to link/create project
+4. Add environment variables in Vercel dashboard:
+   - `SUPABASE_URL`
+   - `SUPABASE_SECRET_KEY`
+   - `SUPABASE_ANON_KEY`
+5. Deploy: `vercel --prod`
+
+The server automatically detects serverless environment and uses the exported handler function.
+
+### Other Platforms
+
+The API can be deployed to any Node.js hosting platform:
+
+- **Railway**: Connect GitHub repo, set environment variables
+- **Fly.io**: Use `flyctl launch` and configure
+- **Heroku**: Add buildpack, set Config Vars
+- **Docker**: Create Dockerfile based on Node.js 20 image
+
+Ensure environment variables are set on your platform.
 
 ## Troubleshooting
 
-### "SUPABASE_URL and SUPABASE_SECRET_KEY must be set"
-Ensure your `.env` file has the correct Supabase credentials from your project settings.
+### Environment Variable Errors
 
-### Import appears stuck
-Scryfall bulk downloads can be slow (~250MB). Check console output for download progress when running CLI commands.
+**Error**: "SUPABASE_URL and SUPABASE_SECRET_KEY must be set"
 
-### Memory errors during import
-The script loads large JSON files into memory. Ensure your system has at least 4GB of available RAM.
+**Solution**: Verify your `.env` file exists and contains valid credentials from your Supabase project settings (Settings → API).
 
-### Foreign key or constraint errors
-Run a full sync with `npm run db:sync` to wipe and reimport all data cleanly.
+### Import Hangs or Times Out
 
-### Cards not found after import
-Check the GitHub Actions workflow logs to ensure the sync completed successfully.
+**Symptom**: Import appears stuck or shows timeout errors
 
---- Development
-Install dependencies
-npm install
+**Causes & Solutions**:
+- **Slow download**: Scryfall bulk file is ~250MB. Wait or check network.
+- **Timeout errors**: Script automatically retries (up to 3 times). Check console for retry messages.
+- **Memory errors**: Ensure 4GB+ RAM available. Close other applications.
 
-# Build TypeScript
-npm run build
+### Authentication Failures
 
-# Start development server with auto-reload (TypeScript)
-npm run dev
+**Error**: "Not authenticated" or "Invalid token"
 
-# Start production server (runs compiled JavaScript)
-npm start
+**Solutions**:
+- Token expired: Generate new token with `npm run get-token`
+- Wrong header format: Use `Authorization: Bearer YOUR_TOKEN` (capital B)
+- Email not confirmed: Check Supabase settings and confirm email if required
 
-# Run database sync from CLI (TypeScript)
-npm run db:sync
+### Database Query Errors
 
-# Run database sync (upsert mode, no clear)
-npm run db:sync:upsert
-```
+**Error**: Card not found or empty results
 
-### TypeScript
+**Solutions**:
+- Run full sync: `npm run db:sync`
+- Check GitHub Actions logs for failed syncs
+- Verify Scryfall ID format (UUID string, not integer)
 
-The project is built with TypeScript for enhanced type safety and developer experience:
+### Build Errors
 
-- **Source files**: All `.ts` files in root and subdirectories
-- **Compiled output**: `dist/` directory (gitignored)
-- **Build command**: `npm run build` - compiles TypeScript to JavaScript
-- **Dev mode**: Uses `ts-node` for direct TypeScript execution
-- **Vercel deployment**: Automatically builds TypeScript during deployment
+**Error**: TypeScript compilation fails
 
-Type definitions are included for all dependencies. The TypeScript configuration (`tsconfig.json`) is set to strict mode for maximum type safety.un database sync (upsert mode, no clear)
-npm run db:sync:upsert
-```
+**Solutions**:
+- Delete `dist/` folder: `rm -rf dist` (or `rmdir /s dist` on Windows)
+- Clear node_modules: `rm -rf node_modules && npm install`
+- Check Node.js version: Requires 20+
+
+## License
+
+ISC
+
+## Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
+
+## Support
+
+For issues or questions:
+- Check the [Troubleshooting](#troubleshooting) section
+- Review [Supabase documentation](https://supabase.com/docs)
+- Check [Scryfall API docs](https://scryfall.com/docs/api)
