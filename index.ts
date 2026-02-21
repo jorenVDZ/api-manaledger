@@ -2,7 +2,6 @@ import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cardRoutes from './routes/card';
-import importRoutes from './routes/import';
 import swaggerSpec from './swagger';
 
 const app = express();
@@ -17,7 +16,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
 app.use('/api/card', cardRoutes);
-app.use('/api/import', importRoutes);
 
 /**
  * @openapi

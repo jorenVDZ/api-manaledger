@@ -8,10 +8,22 @@ A TypeScript/Node.js API for managing Magic: The Gathering card data from Scryfa
 - 💰 Imports CardMarket price guide data (~450,000 price entries)
 - 🗄️ Stores data in Supabase with optimized JSONB indexing
 - 🔄 Async background imports with status tracking
+- ⏰ Automated scheduled syncs via GitHub Actions
 - 📖 Interactive Swagger API documentation
 - 🔷 Written in TypeScript for type safety and better developer experience
 
-## Setup
+## Quick Start
+
+### Automated Scheduled Syncs (GitHub Actions)
+
+**Recommended setup**:
+1. Fork/clone this repo to GitHub
+2. Add repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+3. Workflow runs automatically daily at 2 AM UTC
+
+See **[CRON_SETUP.md](CRON_SETUP.md)** for alternative scheduling options.
+
+### Manual Setup
 
 1. **Install dependencies:**
 ```bash
@@ -42,18 +54,12 @@ Run the SQL schema in your Supabase project:
 
 4. **Import data:**
 
-Start the server and trigger an import:
-```bash
-npm run dev
-
-# In another terminal:
-curl -X POST http://localhost:3000/api/import/sync
-```
-
-Or use the CLI:
+Use the CLI to import data:
 ```bash
 npm run db:sync
 ```
+
+Or set up automated syncs with GitHub Actions (see [CRON_SETUP.md](CRON_SETUP.md)).
 
 ## API Documentation
 
@@ -69,27 +75,6 @@ Once the server is running, visit this URL to explore all endpoints, view reques
 - **GET** `/health`
 - Returns the API health status
 
-### Import Operations
-
-#### Start Full Database Sync
-- **POST** `/api/import/sync`
-- Downloads and imports all data from Scryfall and CardMarket
-- Clears existing data and imports fresh data
-- Runs asynchronously in background
-
-#### Import Status
-- **GET** `/api/import/status`
-- Returns current import progress and last run results
-- Shows number of records imported, errors, and duration
-
-#### Import Scryfall Only
-- **POST** `/api/import/scryfall`
-- Imports only Scryfall card data
-
-#### Import Prices Only
-- **POST** `/api/import/prices`
-- Imports only CardMarket price data
-
 ### Card Data
 
 #### Get Card by Scryfall ID
@@ -103,14 +88,6 @@ Once the server is running, visit this URL to explore all endpoints, view reques
 # Health check
 curl http://localhost:3000/health
 
-# Start full database sync
-curl -X POST http://localhost:3000/api/import/sync \
-  -H "Content-Type: application/json" \
-  -d '{"clearFirst": true}'
-
-# Check import status
-curl http://localhost:3000/api/import/status
-
 # Get card by Scryfall ID
 curl http://localhost:3000/api/card/7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0
 ```
@@ -122,11 +99,13 @@ api-manaledger/
 ├── index.ts                    # Main server file
 ├── swagger.ts                  # Swagger/OpenAPI configuration
 ├── routes/
-│   ├── card.ts                 # Card API routes (Supabase queries)
-│   └── import.ts               # Import/sync API routes
+│   └── card.ts                 # Card API routes (Supabase queries)
 ├── database/
 │   ├── schema.sql              # PostgreSQL database schema
 │   └── import.ts               # Import script for syncing data
+├── .github/
+│   └── workflows/
+│       └── sync-database.yml   # GitHub Actions automated sync
 ├── dist/                       # Compiled JavaScript output
 ├── tsconfig.json               # TypeScript configuration
 ├── package.json
@@ -209,56 +188,39 @@ The import script automatically:
 1. Fetches bulk data metadata from Scryfall
 2. Downloads and decompresses the latest datasets
 3. Imports data in batches with progress tracking
-4. 
 
-## Import Details
+## Import Methods
 
-### Via API (Recommended)
-Imports run **asynchronously** in the background:
+### Via GitHub Actions (Automated - Recommended)
+Database syncs run automatically on schedule:
+- Configured to run daily at 2 AM UTC
+- Uses upsert mode (no clearing)
+- View logs in GitHub Actions tab
+- See [CRON_SETUP.md](CRON_SETUP.md) for setup instructions
 
-```bash
-# Start full sync (clears and reimports all data)
-curl -X POST http://localhost:3000/api/import/sync \
-  -H "Content-Type: application/json" \
-  -d '{"clearFirst": true}'
-
-# Start sync without clearing (upsert mode)
-curl -X POST http://localhost:3000/api/import/sync \
-  -H "Content-Type: application/json" \
-  -d '{"clearFirst": false}'
-
-# Check status
-curl http://localhost:3000/api/import/status
-```
-
-**Status Response Example:**
-```json
-{
-  "isRunning": false,
-  "lastRun": "2026-02-21T10:30:00.000Z",
-  "lastResult": {
-    "success": true,
-    "scryfallResult": { "imported": 85000, "errors": 0 },
-    "priceResult": { "imported": 450000, "errors": 0 },
-    "duration": 425.5
-  },
-  "progress": "Completed"
-}
-```
-
-### Via CLI
-Direct execution (blocks until complete):
+### Via CLI (Manual)
+Direct execution from your local machine:
 ```bash
 npm run db:sync          # Full sync with clearing
-npm run db:sync:upsert   # Upsert without clearing
+npm run db:sync:upsert   # Upsert without clearing (faster)
 ```
 
-### Important Notes
-- Only **one import can run at a time** (concurrent requests return 409 Conflict)
-- Import runs in background when triggered via API
-- Check `/api/import/status` for progress
-- Server console shows real-time progress with percentages
+**Important Notes:**
+- Console shows real-time progress with percentages during CLI execution
 - Requires at least **4GB available RAM** for large file processing
+- Typically takes 5-15 minutes depending on network speed
+- Requires at least **4GB available RAM** for large file processing
+
+## Automated Scheduling
+
+Automated syncs run via **GitHub Actions** on a schedule:
+
+**Quick Start**:
+1. Add GitHub repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+2. Push the workflow file (already included in `.github/workflows/`)
+3. Runs automatically daily at 2 AM UTC
+
+See **[CRON_SETUP.md](CRON_SETUP.md)** for detailed setup instructions and customization options.
 
 ## Troubleshooting
 
@@ -266,21 +228,18 @@ npm run db:sync:upsert   # Upsert without clearing
 Ensure your `.env` file has the correct Supabase credentials from your project settings.
 
 ### Import appears stuck
-Scryfall bulk downloads can be slow (~250MB). Check server console for download progress. No timeout is set.
+Scryfall bulk downloads can be slow (~250MB). Check console output for download progress when running CLI commands.
 
 ### Memory errors during import
 The script loads large JSON files into memory. Ensure your system has at least 4GB of available RAM.
 
-### 409 Conflict on import
-An import is already running. Check `/api/import/status` and wait for it to complete.
-
 ### Foreign key or constraint errors
-Run a full sync with `clearFirst: true` to wipe and reimport all data cleanly.
+Run a full sync with `npm run db:sync` to wipe and reimport all data cleanly.
 
 ### Cards not found after import
-Ensure the import completed successfully by checking `/api/import/status`. The `lastResult.success` should be `true`.Updates timestamps for each record
+Check the GitHub Actions workflow logs to ensure the sync completed successfully.
 
-## Development
+--- Development
 Install dependencies
 npm install
 
