@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
+import authRoutes from './routes/auth';
 import cardRoutes from './routes/card';
 import swaggerSpec from './swagger';
 
@@ -15,6 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/card', cardRoutes);
 
 /**

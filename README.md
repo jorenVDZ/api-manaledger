@@ -10,7 +10,8 @@ A TypeScript/Node.js API for managing Magic: The Gathering card data from Scryfa
 - 🔄 Async background imports with status tracking
 - ⏰ Automated scheduled syncs via GitHub Actions
 - 📖 Interactive Swagger API documentation
-- 🔷 Written in TypeScript for type safety and better developer experience
+- � Supabase authentication for secure API access
+- �🔷 Written in TypeScript for type safety and better developer experience
 
 ## Quick Start
 
@@ -69,28 +70,61 @@ Interactive API documentation is available via Swagger UI:
 
 Once the server is running, visit this URL to explore all endpoints, view request/response schemas, and test the API directly from your browser.
 
-## API Endpoints
+### Authentication
 
-### Health Check
-- **GET** `/health`
-- Returns the API health status
+The API is secured with Supabase authentication. Most endpoints require a valid JWT token. See **[AUTH_SETUP.md](AUTH_SETUP.md)** for detailed instructions on:
+- Setting up authentication
+- Getting access tokens
+- Making authenticated requests
+- TeAuthentication
+
+#### Get Current User
+- **GET** `/api/auth/me`
+- 🔒 Requires authentication
+- Returns the authenticated user's profile information
+
+#### Verify Token
+- **GET** `/api/auth/verify`
+- Checks if the provided token is valid (optional authentication)
 
 ### Card Data
 
 #### Get Card by Scryfall ID
 - **GET** `/api/card/:scryfallId`
-- Retrieves card information by Scryfall UUID
-- Returns complete card data including metadata
+- 🔒 Requires authentication
+### Health Check
+- **GET** `/health`
+- Returns the API health status
 
-## Example Usage
+### Card Data
+ (requires authentication)
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:3000/api/card/7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0
 
-```bash
-# Health check
-curl http://localhost:3000/health
-
-# Get card by Scryfall ID
-curl http://localhost:3000/api/card/7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0
+# Get current user info
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  http://localhost:3000/api/auth/me
 ```
+
+**Note:** See [AUTH_SETUP.md](AUTH_SETUP.md) for how to obtain authentication tokens.*GET** `/api/card/:scryfallId`
+- Retrieves card information by Scryfall UUID
+- Re├── auth.ts                 # Authentication endpoints
+│   └── card.ts                 # Card API routes (Supabase queries)
+├── middleware/
+│   └── auth.ts                 # Authentication middleware
+├── services/
+│   └── supabase.ts             # Supabase client configuration
+├── database/
+│   ├── schema.sql              # PostgreSQL database schema
+│   └── import.ts               # Import script for syncing data
+├── .github/
+│   └── workflows/
+│       └── sync-database.yml   # GitHub Actions automated sync
+├── dist/                       # Compiled JavaScript output
+├── tsconfig.json               # TypeScript configuration
+├── package.json
+├── .env.example
+├── AUTH_SETUP.md               # Authentication setup guid
 
 ## Project Structure
 

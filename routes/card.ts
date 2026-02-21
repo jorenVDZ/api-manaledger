@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import { requireAuth } from '../middleware/auth';
 import { getSupabaseClient } from '../services/supabase';
 
 const router = Router();
@@ -11,6 +12,8 @@ const router = Router();
  *       - Card
  *     summary: Get card details by Scryfall ID
  *     description: Returns the complete Scryfall card object for the given UUID
+ *     security:
+ *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: scryfallId
@@ -29,12 +32,14 @@ const router = Router();
  *               description: Complete Scryfall card object with all card properties
  *       400:
  *         description: Invalid Scryfall ID
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
  *       404:
  *         description: Card not found
  *       500:
  *         description: Server error
  */
-router.get('/:scryfallId', async (req: Request, res: Response): Promise<void> => {
+router.get('/:scryfallId', requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     const scryfallId = req.params.scryfallId.trim();
     
