@@ -1,94 +1,100 @@
 const express = require('express');
 const router = express.Router();
-const cardMarketService = require('../services/cardMarketService');
+const { createClient } = require('@supabase/supabase-js');
+
+// Lazy initialization of Supabase client
+let supabase;
+function getSupabaseClient() {
+  if (!supabase) {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl) {
+      throw new Error('SUPABASE_URL environment variable is required');
+    }
+    if (!supabaseKey) {
+      throw new Error('SUPABASE_SERVICE_KEY or SUPABASE_ANON_KEY environment variable is required');
+    }
+    
+    supabase = createClient(supabaseUrl, supabaseKey);
+  }
+  return supabase;
+}
 
 /**
  * @openapi
- * /api/card/{productId}:
+ * /api/card/{scryfallId}:
  *   get:
  *     tags:
  *       - Card
- *     summary: Get card details by CardMarket Product ID
- *     description: Fetches card information from local CardMarket data and enriches it with Scryfall data
+ *     summary: Get card details by Scryfall ID
+ *     description: Returns the complete Scryfall card object for the given UUID
  *     parameters:
  *       - in: path
- *         name: productId
+ *         name: scryfallId
  *         required: true
  *         schema:
- *           type: integer
- *         description: CardMarket Product ID
- *         example: 379041
+ *           type: string
+ *         description: Scryfall UUID
+ *         example: "7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0"
  *     responses:
  *       200:
- *         description: Card details retrieved successfully
+ *         description: Scryfall card object
  *         content:
  *           application/json:
  *             schema:
  *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     productId:
- *                       type: integer
- *                       example: 379041
- *                     name:
- *                       type: string
- *                       example: "Embodiment of Agonies"
- *                     cardmarket:
- *                       type: object
- *                       description: CardMarket product and pricing data
- *                     scryfall:
- *                       type: object
- *                       description: Scryfall card data
+ *               description: Complete Scryfall card object with all card properties
  *       400:
- *         description: Invalid product ID
+ *         description: Invalid Scryfall ID
  *       404:
  *         description: Card not found
- *       503:
- *         description: Data not available
  *       500:
  *         description: Server error
  */
-router.get('/:productId', async (req, res) => {
+router.get('/:scryfallId', async (req, res) => {
   try {
-    const productId = parseInt(req.params.productId);
+    const scryfallId = req.params.scryfallId.trim();
     
-    if (isNaN(productId)) {
+    if (!scryfallId) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid product ID'
+        message: 'Invalid Scryfall ID'
       });
     }
     
-    const cardData = await cardMarketService.getCardByProductId(productId);
+    // Get Supabase client
+    const supabase = getSupabaseClient();
     
-    if (!cardData) {
+    // Query card from database
+    const { data: cardData, error } = await supabase
+      .from('scryfall_data')
+      .select('data')
+      .eq('id', scryfallId)
+      .single();
+    
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({
+          success: false,
+          message: `Card with Scryfall ID ${scryfallId} not found`
+        });
+      }
+      throw error;
+    }
+    
+    if (!cardData || !cardData.data) {
       return res.status(404).json({
         success: false,
-        message: `Card with Product ID ${productId} not found in CardMarket data`
+        message: `Card with Scryfall ID ${scryfallId} not found`
       });
     }
     
-    res.status(200).json({
-      success: true,
-      data: cardData
-    });
+    // Return just the Scryfall card data
+    res.status(200).json(cardData.data);
     
   } catch (error) {
     console.error('Error fetching card details:', error);
-    
-    // Handle specific error cases
-    if (error.code === 'ENOENT') {
-      return res.status(503).json({
-        success: false,
-        message: 'CardMarket data not available. Please run sync first.',
-        error: error.message
-      });
-    }
     
     res.status(500).json({
       success: false,

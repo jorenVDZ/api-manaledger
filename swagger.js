@@ -23,12 +23,12 @@ const options = {
         description: 'Health check endpoints',
       },
       {
-        name: 'CardMarket',
-        description: 'CardMarket sync operations',
-      },
-      {
         name: 'Card',
         description: 'Card data endpoints',
+      },
+      {
+        name: 'Import',
+        description: 'Database import and sync operations',
       },
     ],
   },

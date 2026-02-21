@@ -2,8 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
-const cardMarketRoutes = require('./routes/cardMarket');
 const cardRoutes = require('./routes/card');
+const importRoutes = require('./routes/import');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,8 +16,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Routes
-app.use('/api/cardmarket', cardMarketRoutes);
 app.use('/api/card', cardRoutes);
+app.use('/api/import', importRoutes);
 
 /**
  * @openapi

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "db:sync": "node database/import.js",
+    "db:sync:upsert": "node database/import.js --no-clear"
   },
   "keywords": ["cardmarket", "api", "manaledger"],
   "author": "",
@@ -15,7 +17,8 @@
     "dotenv": "^16.3.1",
     "swagger-ui-express": "^5.0.0",
     "swagger-jsdoc": "^6.2.8",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
