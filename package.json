@@ -2,12 +2,14 @@
   "name": "api-manaledger",
   "version": "1.0.0",
   "description": "ManaLedger API for syncing CardMarket data",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "db:sync": "node database/import.js",
-    "db:sync:upsert": "node database/import.js --no-clear"
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node index.ts",
+    "db:sync": "ts-node database/import.ts",
+    "db:sync:upsert": "ts-node database/import.ts --no-clear",
+    "vercel-build": "tsc"
   },
   "keywords": ["cardmarket", "api", "manaledger"],
   "author": "",
@@ -21,6 +23,12 @@
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.10.6",
+    "@types/express": "^4.17.21",
+    "@types/swagger-ui-express": "^4.1.6",
+    "@types/swagger-jsdoc": "^6.0.4"
   }
 }

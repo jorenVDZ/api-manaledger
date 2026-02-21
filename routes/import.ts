@@ -1,9 +1,37 @@
-const express = require('express');
-const router = express.Router();
-const { sync, importScryfallData, importPriceData } = require('../database/import');
+import { Request, Response, Router } from 'express';
+import { importPriceData, importScryfallData, sync } from '../database/import';
+
+const router = Router();
+
+// Types
+interface ImportStatus {
+  isRunning: boolean;
+  lastRun: string | null;
+  lastResult: ImportResultStatus | null;
+  progress: string | null;
+}
+
+interface ImportResultStatus {
+  success: boolean;
+  type?: string;
+  imported?: number;
+  errors?: number;
+  error?: string;
+  timestamp: string;
+  duration?: number;
+  scryfallResult?: {
+    imported: number;
+    errors: number;
+  };
+  priceResult?: {
+    imported: number;
+    errors: number;
+  };
+  totalErrors?: number;
+}
 
 // Store import status
-let importStatus = {
+const importStatus: ImportStatus = {
   isRunning: false,
   lastRun: null,
   lastResult: null,
@@ -36,7 +64,7 @@ let importStatus = {
  *                 progress:
  *                   type: string
  */
-router.get('/status', (req, res) => {
+router.get('/status', (_req: Request, res: Response) => {
   res.json(importStatus);
 });
 
@@ -75,13 +103,14 @@ router.get('/status', (req, res) => {
  *       500:
  *         description: Error starting import
  */
-router.post('/sync', async (req, res) => {
+router.post('/sync', async (req: Request, res: Response): Promise<void> => {
   if (importStatus.isRunning) {
-    return res.status(409).json({
+    res.status(409).json({
       message: 'Import already in progress',
       status: 'running',
       progress: importStatus.progress
     });
+    return;
   }
 
   const clearFirst = req.body.clearFirst !== false; // Default to true
@@ -114,7 +143,7 @@ router.post('/sync', async (req, res) => {
     importStatus.progress = 'Completed';
     
     console.log('[API] Database sync completed successfully');
-  } catch (error) {
+  } catch (error: any) {
     importStatus.isRunning = false;
     importStatus.lastRun = new Date().toISOString();
     importStatus.lastResult = {
@@ -142,12 +171,13 @@ router.post('/sync', async (req, res) => {
  *       409:
  *         description: Import already in progress
  */
-router.post('/scryfall', async (req, res) => {
+router.post('/scryfall', async (_req: Request, res: Response): Promise<void> => {
   if (importStatus.isRunning) {
-    return res.status(409).json({
+    res.status(409).json({
       message: 'Import already in progress',
       status: 'running'
     });
+    return;
   }
 
   importStatus.isRunning = true;
@@ -170,7 +200,7 @@ router.post('/scryfall', async (req, res) => {
       timestamp: new Date().toISOString()
     };
     importStatus.progress = 'Completed';
-  } catch (error) {
+  } catch (error: any) {
     importStatus.isRunning = false;
     importStatus.lastRun = new Date().toISOString();
     importStatus.lastResult = {
@@ -199,12 +229,13 @@ router.post('/scryfall', async (req, res) => {
  *       409:
  *         description: Import already in progress
  */
-router.post('/prices', async (req, res) => {
+router.post('/prices', async (_req: Request, res: Response): Promise<void> => {
   if (importStatus.isRunning) {
-    return res.status(409).json({
+    res.status(409).json({
       message: 'Import already in progress',
       status: 'running'
     });
+    return;
   }
 
   importStatus.isRunning = true;
@@ -227,7 +258,7 @@ router.post('/prices', async (req, res) => {
       timestamp: new Date().toISOString()
     };
     importStatus.progress = 'Completed';
-  } catch (error) {
+  } catch (error: any) {
     importStatus.isRunning = false;
     importStatus.lastRun = new Date().toISOString();
     importStatus.lastResult = {
@@ -242,4 +273,4 @@ router.post('/prices', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

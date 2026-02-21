@@ -1,9 +1,9 @@
-require('dotenv').config();
-const express = require('express');
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./swagger');
-const cardRoutes = require('./routes/card');
-const importRoutes = require('./routes/import');
+import 'dotenv/config';
+import express, { Request, Response } from 'express';
+import swaggerUi from 'swagger-ui-express';
+import cardRoutes from './routes/card';
+import importRoutes from './routes/import';
+import swaggerSpec from './swagger';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,11 +42,16 @@ app.use('/api/import', importRoutes);
  *                   type: string
  *                   example: API is running
  */
-app.get('/health', (req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'API is running' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`ManaLedger API server running on port ${PORT}`);
-});
+// Start server (only when not in serverless environment)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`ManaLedger API server running on port ${PORT}`);
+  });
+}
+
+// Export for serverless
+export default app;

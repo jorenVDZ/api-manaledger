@@ -1,10 +1,11 @@
-const express = require('express');
-const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Request, Response, Router } from 'express';
+
+const router = Router();
 
 // Lazy initialization of Supabase client
-let supabase;
-function getSupabaseClient() {
+let supabase: SupabaseClient | null = null;
+function getSupabaseClient(): SupabaseClient {
   if (!supabase) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -52,15 +53,16 @@ function getSupabaseClient() {
  *       500:
  *         description: Server error
  */
-router.get('/:scryfallId', async (req, res) => {
+router.get('/:scryfallId', async (req: Request, res: Response): Promise<void> => {
   try {
     const scryfallId = req.params.scryfallId.trim();
     
     if (!scryfallId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         message: 'Invalid Scryfall ID'
       });
+      return;
     }
     
     // Get Supabase client
@@ -75,25 +77,27 @@ router.get('/:scryfallId', async (req, res) => {
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: `Card with Scryfall ID ${scryfallId} not found`
         });
+        return;
       }
       throw error;
     }
     
     if (!cardData || !cardData.data) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: `Card with Scryfall ID ${scryfallId} not found`
       });
+      return;
     }
     
     // Return just the Scryfall card data
     res.status(200).json(cardData.data);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching card details:', error);
     
     res.status(500).json({
@@ -104,4 +108,4 @@ router.get('/:scryfallId', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,6 +1,6 @@
 # ManaLedger API
 
-A Node.js API for managing Magic: The Gathering card data from Scryfall and CardMarket, stored in Supabase.
+A TypeScript/Node.js API for managing Magic: The Gathering card data from Scryfall and CardMarket, stored in Supabase.
 
 ## Features
 
@@ -9,6 +9,7 @@ A Node.js API for managing Magic: The Gathering card data from Scryfall and Card
 - 🗄️ Stores data in Supabase with optimized JSONB indexing
 - 🔄 Async background imports with status tracking
 - 📖 Interactive Swagger API documentation
+- 🔷 Written in TypeScript for type safety and better developer experience
 
 ## Setup
 
@@ -118,14 +119,16 @@ curl http://localhost:3000/api/card/7a0d78d6-145e-4bbf-a31d-a8f8e6e1a3a0
 
 ```
 api-manaledger/
-├── index.js                    # Main server file
-├── swagger.js                  # Swagger/OpenAPI configuration
+├── index.ts                    # Main server file
+├── swagger.ts                  # Swagger/OpenAPI configuration
 ├── routes/
-│   ├── card.js                 # Card API routes (Supabase queries)
-│   └── import.js               # Import/sync API routes
+│   ├── card.ts                 # Card API routes (Supabase queries)
+│   └── import.ts               # Import/sync API routes
 ├── database/
 │   ├── schema.sql              # PostgreSQL database schema
-│   └── import.js               # Import script for syncing data
+│   └── import.ts               # Import script for syncing data
+├── dist/                       # Compiled JavaScript output
+├── tsconfig.json               # TypeScript configuration
 ├── package.json
 ├── .env.example
 └── README.md
@@ -278,17 +281,35 @@ Run a full sync with `clearFirst: true` to wipe and reimport all data cleanly.
 Ensure the import completed successfully by checking `/api/import/status`. The `lastResult.success` should be `true`.Updates timestamps for each record
 
 ## Development
+Install dependencies
+npm install
 
-```bash
-# Start development server with auto-reload
+# Build TypeScript
+npm run build
+
+# Start development server with auto-reload (TypeScript)
 npm run dev
 
-# Start production server
+# Start production server (runs compiled JavaScript)
 npm start
 
-# Run database sync from CLI
+# Run database sync from CLI (TypeScript)
 npm run db:sync
 
 # Run database sync (upsert mode, no clear)
+npm run db:sync:upsert
+```
+
+### TypeScript
+
+The project is built with TypeScript for enhanced type safety and developer experience:
+
+- **Source files**: All `.ts` files in root and subdirectories
+- **Compiled output**: `dist/` directory (gitignored)
+- **Build command**: `npm run build` - compiles TypeScript to JavaScript
+- **Dev mode**: Uses `ts-node` for direct TypeScript execution
+- **Vercel deployment**: Automatically builds TypeScript during deployment
+
+Type definitions are included for all dependencies. The TypeScript configuration (`tsconfig.json`) is set to strict mode for maximum type safety.un database sync (upsert mode, no clear)
 npm run db:sync:upsert
 ```

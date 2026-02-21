@@ -1,14 +1,54 @@
-require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
-const axios = require('axios');
-const zlib = require('zlib');
-const { promisify } = require('util');
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import axios, { AxiosResponse } from 'axios';
+import 'dotenv/config';
+import { promisify } from 'util';
+import * as zlib from 'zlib';
 
 const gunzip = promisify(zlib.gunzip);
 
+// Types
+interface ScryfallCard {
+  id: string;
+  name: string;
+  [key: string]: any;
+}
+
+interface CardMarketPrice {
+  idProduct: string;
+  [key: string]: any;
+}
+
+interface PriceGuideData {
+  priceGuides: CardMarketPrice[];
+}
+
+interface ImportResult {
+  imported: number;
+  errors: number;
+}
+
+interface SyncResult {
+  scryfallResult: ImportResult;
+  priceResult: ImportResult;
+  duration: number;
+  totalErrors: number;
+}
+
+interface BulkDataItem {
+  type: string;
+  name: string;
+  size: number;
+  updated_at: string;
+  download_uri: string;
+}
+
+interface BulkDataResponse {
+  data: BulkDataItem[];
+}
+
 // Lazy initialization of Supabase client
-let supabase;
-function getSupabaseClient() {
+let supabase: SupabaseClient | null = null;
+function getSupabaseClient(): SupabaseClient {
   if (!supabase) {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -36,12 +76,12 @@ const BATCH_DELAY_MS = 100; // Small delay between batches
 /**
  * Sleep helper for delays between batches
  */
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Import data in batches with progress tracking and retry logic
  */
-async function importInBatches(tableName, data, batchSize = BATCH_SIZE) {
+async function importInBatches(tableName: string, data: any[], batchSize: number = BATCH_SIZE): Promise<ImportResult> {
   const total = data.length;
   let imported = 0;
   let errors = 0;
@@ -84,7 +124,7 @@ async function importInBatches(tableName, data, batchSize = BATCH_SIZE) {
           const progress = ((imported / total) * 100).toFixed(1);
           process.stdout.write(`\r  Progress: ${imported}/${total} (${progress}%) - ${errors} errors`);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(`\nUnexpected error in batch ${batchNum}:`, err.message);
         errors++;
       }
@@ -105,9 +145,9 @@ async function importInBatches(tableName, data, batchSize = BATCH_SIZE) {
 /**
  * Fetch Scryfall bulk data metadata
  */
-async function fetchScryfallBulkMetadata() {
+async function fetchScryfallBulkMetadata(): Promise<BulkDataItem> {
   console.log('🔍 Fetching Scryfall bulk data metadata...');
-  const response = await axios.get(SCRYFALL_BULK_API);
+  const response: AxiosResponse<BulkDataResponse> = await axios.get(SCRYFALL_BULK_API);
   
   // Find the unique_artwork bulk data
   const uniqueArtwork = response.data.data.find(item => item.type === 'unique_artwork');
@@ -126,10 +166,10 @@ async function fetchScryfallBulkMetadata() {
 /**
  * Download and decompress gzipped JSON data
  */
-async function downloadAndDecompress(url, name) {
+async function downloadAndDecompress(url: string, name: string): Promise<any> {
   console.log(`\n⬇️  Downloading ${name}...`);
   
-  const response = await axios.get(url, {
+  const response: AxiosResponse<ArrayBuffer> = await axios.get(url, {
     responseType: 'arraybuffer',
     decompress: false, // Don't auto-decompress, we'll handle it manually
     headers: {
@@ -145,7 +185,7 @@ async function downloadAndDecompress(url, name) {
   
   console.log('\n  ✓ Download complete');
   
-  let jsonData;
+  let jsonData: any;
   
   // Check if content is gzipped by looking at magic number
   const buffer = Buffer.from(response.data);
@@ -168,7 +208,7 @@ async function downloadAndDecompress(url, name) {
 /**
  * Download JSON data (not compressed)
  */
-async function downloadJSON(url, name) {
+async function downloadJSON(url: string, name: string): Promise<any> {
   console.log(`\n⬇️  Downloading ${name}...`);
   
   const response = await axios.get(url, {
@@ -188,14 +228,14 @@ async function downloadJSON(url, name) {
 /**
  * Import Scryfall data (unique_artwork)
  */
-async function importScryfallData() {
+async function importScryfallData(): Promise<ImportResult> {
   console.log('📚 Loading Scryfall data...');
   
   // Fetch bulk data metadata
   const bulkMetadata = await fetchScryfallBulkMetadata();
   
   // Download and decompress the actual card data
-  const cardData = await downloadAndDecompress(bulkMetadata.download_uri, 'Scryfall Unique Artwork');
+  const cardData: ScryfallCard[] = await downloadAndDecompress(bulkMetadata.download_uri, 'Scryfall Unique Artwork');
   
   console.log(`  📊 Total cards: ${cardData.length}`);
 
@@ -214,11 +254,11 @@ async function importScryfallData() {
 /**
  * Import CardMarket price data
  */
-async function importPriceData() {
+async function importPriceData(): Promise<ImportResult> {
   console.log('💰 Loading CardMarket price data...');
   
   // Download price guide JSON
-  const jsonData = await downloadJSON(CARDMARKET_PRICE_GUIDE, 'CardMarket Price Guide');
+  const jsonData: PriceGuideData = await downloadJSON(CARDMARKET_PRICE_GUIDE, 'CardMarket Price Guide');
   
   console.log(`  📊 Total price entries: ${jsonData.priceGuides.length}`);
 
@@ -237,7 +277,7 @@ async function importPriceData() {
 /**
  * Clear all data from tables (optional for full sync)
  */
-async function clearTables() {
+async function clearTables(): Promise<void> {
   console.log('🗑️  Clearing existing data...');
   
   try {
@@ -264,7 +304,7 @@ async function clearTables() {
     } else {
       console.log('  ✓ Scryfall data cleared');
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('  Error during table clearing:', err.message);
   }
 
@@ -274,7 +314,7 @@ async function clearTables() {
 /**
  * Main sync function
  */
-async function sync(clearFirst = true) {
+async function sync(clearFirst: boolean = true): Promise<SyncResult> {
   const startTime = Date.now();
 
   console.log('╔══════════════════════════════════════╗');
@@ -283,9 +323,9 @@ async function sync(clearFirst = true) {
 
   // Verify Supabase connection by initializing client
   try {
-    const client = getSupabaseClient();
+    getSupabaseClient();
     console.log(`📡 Connected to: ${process.env.SUPABASE_URL}\n`);
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error:', error.message);
     throw error;
   }
@@ -303,14 +343,14 @@ async function sync(clearFirst = true) {
     const priceResult = await importPriceData();
 
     // Summary
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    const duration = ((Date.now() - startTime) / 1000);
     console.log('╔══════════════════════════════════════╗');
     console.log('║            Sync Complete!            ║');
     console.log('╚══════════════════════════════════════╝');
     console.log(`\n📊 Summary:`);
     console.log(`  Scryfall: ${scryfallResult.imported} records`);
     console.log(`  Prices:   ${priceResult.imported} records`);
-    console.log(`  Duration: ${duration}s`);
+    console.log(`  Duration: ${duration.toFixed(2)}s`);
     console.log(`  Errors:   ${scryfallResult.errors + priceResult.errors} batches failed\n`);
 
     if (scryfallResult.errors + priceResult.errors > 0) {
@@ -321,11 +361,11 @@ async function sync(clearFirst = true) {
     return {
       scryfallResult,
       priceResult,
-      duration: parseFloat(duration),
+      duration: parseFloat(duration.toFixed(2)),
       totalErrors: scryfallResult.errors + priceResult.errors
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('\n❌ Fatal error during sync:', error.message);
     console.error(error.stack);
     throw error;
@@ -351,4 +391,5 @@ if (require.main === module) {
   }
 }
 
-module.exports = { sync, importScryfallData, importPriceData };
+export { getSupabaseClient, importPriceData, importScryfallData, sync };
+
