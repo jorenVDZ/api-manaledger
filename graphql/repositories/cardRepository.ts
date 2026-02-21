@@ -1,21 +1,5 @@
 import { getSupabaseClient } from '../../services/supabase';
-import { Card, CardmarketPrice } from './types/Card';
-
-// Helper function to convert snake_case to camelCase
-function toCamelCase(obj: any): any {
-  if (obj === null || obj === undefined) return obj;
-  if (Array.isArray(obj)) return obj.map(toCamelCase);
-  if (typeof obj !== 'object') return obj;
-
-  const result: any = {};
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-      result[camelKey] = toCamelCase(obj[key]);
-    }
-  }
-  return result;
-}
+import { Card, CardmarketPrice } from './types';
 
 /**
  * Repository for card data access
@@ -44,7 +28,7 @@ export const cardRepository = {
       return null;
     }
 
-    return toCamelCase(cardData.data) as Card;
+    return cardData.data as Card;
   },
 
   /**
@@ -72,7 +56,7 @@ export const cardRepository = {
       throw error;
     }
 
-    const cards = (cardsData || []).map((item: any) => toCamelCase(item.data) as Card);
+    const cards = (cardsData || []).map((item: any) => item.data as Card);
     const total = count || 0;
 
     return { cards, total };
@@ -94,7 +78,7 @@ export const cardRepository = {
       throw error;
     }
 
-    return (cardsData || []).map((item: any) => toCamelCase(item.data) as Card);
+    return (cardsData || []).map((item: any) => item.data as Card);
   },
 
   /**
@@ -106,15 +90,15 @@ export const cardRepository = {
     const { data, error } = await supabase
       .from('cardmarket_price_guide')
       .select('data')
-      .eq('scryfall_id', cardmarketId)
+      .eq('scryfallId', cardmarketId)
       .single();
 
     if (error || !data) {
       return null;
     }
 
-    // Extract and convert price data to camelCase
-    const priceData = toCamelCase(data.data);
+    // Extract price data (already in camelCase)
+    const priceData = data.data;
     
     // Return the price data with camelCase field names
     return {

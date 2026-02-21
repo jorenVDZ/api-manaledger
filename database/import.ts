@@ -6,6 +6,22 @@ import { getSupabaseClient } from '../services/supabase';
 
 const gunzip = promisify(zlib.gunzip);
 
+// Helper function to convert snake_case to camelCase
+function toCamelCase(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(toCamelCase);
+  if (typeof obj !== 'object') return obj;
+
+  const result: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+      result[camelKey] = toCamelCase(obj[key]);
+    }
+  }
+  return result;
+}
+
 // Types
 interface ScryfallCard {
   id: string;
@@ -220,13 +236,13 @@ async function importScryfallData(): Promise<ImportResult> {
   
   console.log(`  📊 Total cards: ${cardData.length}`);
 
-  // Transform data to match database schema
+  // Transform data to match database schema with camelCase
   const products = cardData.map(card => ({
     id: card.id, // Use Scryfall's UUID as the ID
     name: card.name,
-    data: card, // Store full card data in JSONB
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    data: toCamelCase(card), // Convert to camelCase and store in JSONB
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }));
 
   return await importInBatches('scryfall_data', products);
@@ -243,13 +259,13 @@ async function importPriceData(): Promise<ImportResult> {
   
   console.log(`  📊 Total price entries: ${jsonData.priceGuides.length}`);
 
-  // Transform data to match database schema
+  // Transform data to match database schema with camelCase
   const priceGuides = jsonData.priceGuides.map((price) => ({
     // id is auto-generated
-    scryfall_id: price.idProduct,
-    data: price, // Store full price data in JSONB
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    scryfallId: price.idProduct,
+    data: toCamelCase(price), // Convert to camelCase and store in JSONB
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }));
 
   return await importInBatches('cardmarket_price_guide', priceGuides);

@@ -264,7 +264,8 @@ api-manaledger/
 │   └── supabase.ts            # Supabase client configuration
 ├── database/
 │   ├── schema.sql             # PostgreSQL database schema
-│   └── import.ts              # Data import script
+│   ├── import.ts              # Data import script
+│   └── migrations/            # Incremental database migrations
 ├── scripts/
 │   ├── signup.ts              # User registration CLI
 │   └── get-token.ts           # Token generator CLI
@@ -328,6 +329,17 @@ The schema includes optimized indexes for high-performance queries:
 - **Retry Logic**: Automatic retry (up to 3 attempts) with exponential backoff
 - **Storage**: ~2GB for complete dataset (~535,000 records)
 - **Query Speed**: Sub-100ms for indexed lookups
+
+### Database Migrations
+
+The `database/migrations/` directory contains incremental migration scripts for schema changes.
+
+**Migration Naming**: `YYYY-MM-DD-HH-MM-SS_description.sql`
+
+Example: `2026-02-21-00-00-01_create_collection_items.sql`
+
+**Current Migrations**:
+1. `2026-02-21-00-00-01_create_collection_items.sql` - User card collections table
 
 ## Data Sources & Import System
 
