@@ -15,7 +15,20 @@ export function getSupabaseClient(): SupabaseClient {
       throw new Error('SUPABASE_SECRET_KEY or SUPABASE_ANON_KEY environment variable is required');
     }
     
-    supabase = createClient(supabaseUrl, supabaseKey);
+    // Create client with timeout configuration for Vercel
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      db: {
+        schema: 'public',
+      },
+      auth: {
+        persistSession: false, // Disable session persistence for serverless
+      },
+      global: {
+        headers: {
+          'x-client-info': 'manaledger-api',
+        },
+      },
+    });
   }
   return supabase;
 }

@@ -71,3 +71,18 @@ CREATE TRIGGER update_scryfall_data_updated_at
 CREATE TRIGGER update_price_guid_updated_at 
     BEFORE UPDATE ON cardmarket_price_guid
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================================================
+-- Helper Functions for Data Import
+-- =============================================================================
+
+-- Function to efficiently clear all data from tables
+-- This is much faster than DELETE queries and is used during full sync
+CREATE OR REPLACE FUNCTION clear_all_data()
+RETURNS void AS $$
+BEGIN
+    -- TRUNCATE is much faster than DELETE as it doesn't scan rows
+    TRUNCATE TABLE cardmarket_price_guid RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE scryfall_data RESTART IDENTITY CASCADE;
+END;
+$$ LANGUAGE plpgsql;

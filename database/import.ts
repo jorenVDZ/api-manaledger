@@ -257,36 +257,59 @@ async function importPriceData(): Promise<ImportResult> {
 
 /**
  * Clear all data from tables (optional for full sync)
+ * Uses SQL TRUNCATE for efficient deletion via stored procedure
  */
 async function clearTables(): Promise<void> {
   console.log('🗑️  Clearing existing data...');
   
   try {
-    // Clear price data first (no foreign key constraint anymore, but keep order for consistency)
-    const { error: priceError } = await getSupabaseClient()
-      .from('cardmarket_price_guid')
-      .delete()
-      .gte('id', 0); // Delete all records
+    const client = getSupabaseClient();
+    
+    // Try to use the stored procedure for efficient TRUNCATE
+    console.log('  🔄 Attempting to clear tables via stored procedure...');
+    const { error: rpcError } = await client.rpc('clear_all_data');
 
-    if (priceError && priceError.code !== 'PGRST116') { // PGRST116 = no rows found
-      console.error('  Error clearing price data:', priceError.message);
+    if (rpcError) {
+      // Stored procedure doesn't exist or failed, use fallback DELETE method
+      console.log('  ⚠️  Stored procedure not available, using DELETE method...');
+      console.log('  ⚠️  RPC Error:', rpcError.message);
+      
+      // Fallback: Use DELETE with a simpler, more reliable approach
+      // Clear price data first
+      console.log('  🔄 Deleting price data...');
+      const { error: priceError, count: priceCount } = await client
+        .from('cardmarket_price_guid')
+        .delete()
+        .not('id', 'is', null); // Delete all where id is not null (i.e., all records)
+      
+      if (priceError && priceError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('  ❌ Error clearing price data:', priceError.message);
+        console.error('  Full error:', JSON.stringify(priceError, null, 2));
+        throw new Error(`Failed to clear price data: ${priceError.message}`);
+      }
+      console.log(`  ✓ Price data cleared (${priceCount || 'unknown'} rows)`);
+
+      // Clear scryfall data
+      console.log('  🔄 Deleting scryfall data...');
+      const { error: scryfallError, count: scryfallCount } = await client
+        .from('scryfall_data')
+        .delete()
+        .not('id', 'is', null); // Delete all where id is not null
+      
+      if (scryfallError && scryfallError.code !== 'PGRST116') {
+        console.error('  ❌ Error clearing scryfall data:', scryfallError.message);
+        console.error('  Full error:', JSON.stringify(scryfallError, null, 2));
+        throw new Error(`Failed to clear scryfall data: ${scryfallError.message}`);
+      }
+      console.log(`  ✓ Scryfall data cleared (${scryfallCount || 'unknown'} rows)`);
     } else {
-      console.log('  ✓ Price data cleared');
+      console.log('  ✓ All tables cleared successfully via stored procedure');
     }
-
-    // Clear scryfall data
-    const { error: scryfallError } = await getSupabaseClient()
-      .from('scryfall_data')
-      .delete()
-      .neq('id', ''); // Delete all records (id is TEXT/UUID, never empty)
-
-    if (scryfallError && scryfallError.code !== 'PGRST116') {
-      console.error('  Error clearing scryfall data:', scryfallError.message);
-    } else {
-      console.log('  ✓ Scryfall data cleared');
-    }
+    
   } catch (err: any) {
-    console.error('  Error during table clearing:', err.message);
+    console.error('  ❌ Fatal error during table clearing:', err.message);
+    console.error('  Stack:', err.stack);
+    throw err; // Re-throw to fail the sync
   }
 
   console.log();
