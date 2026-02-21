@@ -1,8 +1,8 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import axios, { AxiosResponse } from 'axios';
 import 'dotenv/config';
 import { promisify } from 'util';
 import * as zlib from 'zlib';
+import { getSupabaseClient } from '../services/supabase';
 
 const gunzip = promisify(zlib.gunzip);
 
@@ -44,25 +44,6 @@ interface BulkDataItem {
 
 interface BulkDataResponse {
   data: BulkDataItem[];
-}
-
-// Lazy initialization of Supabase client
-let supabase: SupabaseClient | null = null;
-function getSupabaseClient(): SupabaseClient {
-  if (!supabase) {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-    
-    if (!supabaseUrl) {
-      throw new Error('SUPABASE_URL environment variable is required');
-    }
-    if (!supabaseKey) {
-      throw new Error('SUPABASE_SERVICE_KEY environment variable is required');
-    }
-    
-    supabase = createClient(supabaseUrl, supabaseKey);
-  }
-  return supabase;
 }
 
 // API endpoints
@@ -391,5 +372,5 @@ if (require.main === module) {
   }
 }
 
-export { getSupabaseClient, importPriceData, importScryfallData, sync };
+export { importPriceData, importScryfallData, sync };
 
