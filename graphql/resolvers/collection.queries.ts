@@ -64,7 +64,7 @@ export const collectionQueries = {
 
     try {
       // Search for cards by name
-      const cards = await cardRepository.searchByName(cardName, 100);
+      const { cards } = await cardRepository.searchByName(cardName, 100, 0);
 
       if (cards.length === 0) {
         return [];
