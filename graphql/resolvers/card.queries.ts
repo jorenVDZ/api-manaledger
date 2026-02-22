@@ -73,7 +73,7 @@ total,
   /**
    * Search cards by name (fuzzy matching)
    */
-  searchCards: async (_parent: any, args: { query: string; limit: number }, context: GraphQLContext) => {
+  searchCards: async (_parent: any, args: { query: string; limit: number; offset: number }, context: GraphQLContext) => {
     if (!context.user) {
       throw new GraphQLError('Not authenticated', {
         extensions: { code: 'UNAUTHENTICATED' }
@@ -88,9 +88,17 @@ total,
     }
 
     const limit = Math.min(args.limit, 100); // Cap at 100
+    const offset = args.offset || 0;
 
     try {
-      return await cardRepository.searchByName(searchQuery, limit);
+      const { cards, total } = await cardRepository.searchByName(searchQuery, limit, offset);
+      const hasMore = offset + limit < total;
+
+      return {
+        cards,
+        total,
+        hasMore
+      };
     } catch (error) {
       throw new GraphQLError('Failed to search cards', {
         extensions: { code: 'INTERNAL_SERVER_ERROR', originalError: error }

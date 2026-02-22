@@ -65,20 +65,34 @@ export const cardRepository = {
   /**
    * Search cards by name
    */
-  async searchByName(query: string, limit: number): Promise<Card[]> {
+  async searchByName(query: string, limit: number, offset: number): Promise<{ cards: Card[]; total: number }> {
     const supabase = getSupabaseClient();
 
+    // Get total count of matching cards
+    const { count, error: countError } = await supabase
+      .from('scryfall_data')
+      .select('*', { count: 'exact', head: true })
+      .ilike('name', `%${query}%`);
+
+    if (countError) {
+      throw countError;
+    }
+
+    // Get paginated search results
     const { data: cardsData, error } = await supabase
       .from('scryfall_data')
       .select('data')
       .ilike('name', `%${query}%`)
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw error;
     }
 
-    return (cardsData || []).map((item: any) => item.data as Card);
+    const cards = (cardsData || []).map((item: any) => item.data as Card);
+    const total = count || 0;
+
+    return { cards, total };
   },
 
   /**

@@ -347,7 +347,7 @@ export const typeDefs = `#graphql
     Search cards by name (fuzzy matching)
     Requires authentication
     """
-    searchCards(query: String!, limit: Int = 20): [Card!]!
+    searchCards(query: String!, limit: Int = 20, offset: Int = 0): CardsConnection!
 
     # Collection queries
     """
