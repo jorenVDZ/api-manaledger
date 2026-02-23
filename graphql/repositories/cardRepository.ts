@@ -37,19 +37,23 @@ export const cardRepository = {
   async findAll(limit: number, offset: number): Promise<{ cards: Card[]; total: number }> {
     const supabase = getSupabaseClient();
 
-    // Get total count
+    // Get total count excluding memorabilia
     const { count, error: countError } = await supabase
       .from('scryfall_data')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .neq('data->>set_type', 'memorabilia')
+      .order('name', { ascending: true });
 
     if (countError) {
       throw countError;
     }
 
-    // Get paginated cards
+    // Get paginated cards excluding memorabilia
     const { data: cardsData, error } = await supabase
       .from('scryfall_data')
       .select('data')
+      .neq('data->>set_type', 'memorabilia')
+      .order('name', { ascending: true })
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -68,25 +72,25 @@ export const cardRepository = {
   async searchByName(query: string, limit: number, offset: number): Promise<{ cards: Card[]; total: number }> {
     const supabase = getSupabaseClient();
 
-    // Get total count of matching cards
+    // Get total count of matching cards excluding memorabilia
     const { count, error: countError } = await supabase
       .from('scryfall_data')
       .select('*', { count: 'exact', head: true })
+      .order('name', { ascending: true })
       .ilike('name', `%${query}%`)
-      .filter('setType', 'not', 'memorabilia')
-      .order('name', { ascending: true });
+      .neq('data->>setType', 'memorabilia');
 
     if (countError) {
       throw countError;
     }
 
-    // Get paginated search results
+    // Get paginated search results excluding memorabilia
     const { data: cardsData, error } = await supabase
       .from('scryfall_data')
       .select('data')
-      .ilike('name', `%${query}%`)
-      .filter('setType', 'not', 'memorabilia')
       .order('name', { ascending: true })
+      .ilike('name', `%${query}%`)
+      .neq('data->>setType', 'memorabilia')
       .range(offset, offset + limit - 1);
 
     if (error) {

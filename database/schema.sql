@@ -39,6 +39,7 @@ CREATE INDEX idx_price_data_gin ON cardmarket_price_guide USING GIN (data);
 
 -- JSONB path indexes for frequently queried fields in scryfall_data
 CREATE INDEX idx_scryfall_set ON scryfall_data ((data->>'set_name'));
+CREATE INDEX idx_scryfall_setType ON scryfall_data ((data->>'setType'));
 CREATE INDEX idx_scryfall_set_code ON scryfall_data ((data->>'set'));
 CREATE INDEX idx_scryfall_rarity ON scryfall_data ((data->>'rarity'));
 CREATE INDEX idx_scryfall_colors ON scryfall_data ((data->>'colors'));

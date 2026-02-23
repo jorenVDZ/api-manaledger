@@ -100,6 +100,7 @@ total,
         hasMore
       };
     } catch (error) {
+      console.error('Error in searchCards resolver:', error);
       throw new GraphQLError('Failed to search cards', {
         extensions: { code: 'INTERNAL_SERVER_ERROR', originalError: error }
       });
