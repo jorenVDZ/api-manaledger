@@ -72,7 +72,9 @@ export const cardRepository = {
     const { count, error: countError } = await supabase
       .from('scryfall_data')
       .select('*', { count: 'exact', head: true })
-      .ilike('name', `%${query}%`);
+      .ilike('name', `%${query}%`)
+      .filter('setType', 'not', 'memorabilia')
+      .order('name', { ascending: true });
 
     if (countError) {
       throw countError;
@@ -83,6 +85,8 @@ export const cardRepository = {
       .from('scryfall_data')
       .select('data')
       .ilike('name', `%${query}%`)
+      .filter('setType', 'not', 'memorabilia')
+      .order('name', { ascending: true })
       .range(offset, offset + limit - 1);
 
     if (error) {
