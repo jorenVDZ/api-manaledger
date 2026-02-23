@@ -73,32 +73,19 @@ export const cardRepository = {
     const supabase = getSupabaseClient();
 
     // Get total count of matching cards excluding memorabilia
-    const { count, error: countError } = await supabase
-      .from('scryfall_data')
-      .select('*', { count: 'exact', head: true })
-      .order('name', { ascending: true })
-      .ilike('name', `%${query}%`)
-      .neq('data->>setType', 'memorabilia');
+    const { data, error } = await supabase.rpc(
+      'get_latest_printing_with_count',
+      {
+        search: query,
+        off: offset,
+        lim: limit
+      }
+    );
 
-    if (countError) {
-      throw countError;
-    }
+    if (error) throw error;
 
-    // Get paginated search results excluding memorabilia
-    const { data: cardsData, error } = await supabase
-      .from('scryfall_data')
-      .select('data')
-      .order('name', { ascending: true })
-      .ilike('name', `%${query}%`)
-      .neq('data->>setType', 'memorabilia')
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      throw error;
-    }
-
-    const cards = (cardsData || []).map((item: any) => item.data as Card);
-    const total = count || 0;
+    const cards = (data as Array<{ data: Card }>).map((d: { data: Card }) => d.data);
+    const total = data.length > 0 ? data[0].total_count : 0;
 
     return { cards, total };
   },

@@ -86,7 +86,7 @@ export interface Card {
   
   // Game properties
   manaCost?: string;
-  cmc: number;
+  cmc?: number;
   typeLine: string;
   oracleText?: string;
   colors?: string[];

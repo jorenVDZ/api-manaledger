@@ -130,7 +130,7 @@ export const typeDefs = `#graphql
     manaCost: String
     
     """Converted mana cost / Mana value"""
-    cmc: Float!
+    cmc: Float
     
     """Type line"""
     typeLine: String!
