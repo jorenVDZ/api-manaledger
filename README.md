@@ -285,7 +285,7 @@ The application uses Supabase (PostgreSQL) with JSONB storage for flexible, high
 
 ### Tables
 
-#### `scryfall_data`
+#### `card_data`
 Stores complete Scryfall card information:
 - **id** (TEXT, PRIMARY KEY) - Scryfall UUID
 - **name** (VARCHAR) - Card name

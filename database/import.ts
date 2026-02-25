@@ -6,23 +6,21 @@ import { getSupabaseClient } from '../services/supabase';
 
 const gunzip = promisify(zlib.gunzip);
 
-// Helper function to convert snake_case to camelCase
-function toCamelCase(obj: any): any {
-  if (obj === null || obj === undefined) return obj;
-  if (Array.isArray(obj)) return obj.map(toCamelCase);
-  if (typeof obj !== 'object') return obj;
+/* -------------------------------------------------------------------------- */
+/*                                   TYPES                                    */
+/* -------------------------------------------------------------------------- */
 
-  const result: any = {};
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-      result[camelKey] = toCamelCase(obj[key]);
-    }
-  }
-  return result;
+interface ImportResult {
+  imported: number;
+  errors: number;
 }
 
-// Types
+interface SyncResult {
+  importResult: ImportResult;
+  duration: number;
+  totalErrors: number;
+}
+
 interface ScryfallCard {
   id: string;
   name: string;
@@ -38,18 +36,6 @@ interface PriceGuideData {
   priceGuides: CardMarketPrice[];
 }
 
-interface ImportResult {
-  imported: number;
-  errors: number;
-}
-
-interface SyncResult {
-  scryfallResult: ImportResult;
-  priceResult: ImportResult;
-  duration: number;
-  totalErrors: number;
-}
-
 interface BulkDataItem {
   type: string;
   name: string;
@@ -62,75 +48,200 @@ interface BulkDataResponse {
   data: BulkDataItem[];
 }
 
-// API endpoints
+/* -------------------------------------------------------------------------- */
+/*                                  CONSTANTS                                 */
+/* -------------------------------------------------------------------------- */
+
 const SCRYFALL_BULK_API = 'https://api.scryfall.com/bulk-data';
-const CARDMARKET_PRICE_GUIDE = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json';
+const CARDMARKET_PRICE_GUIDE =
+  'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json';
 
-// Batch size for efficient imports (reduced to avoid timeouts)
 const BATCH_SIZE = 500;
-const BATCH_DELAY_MS = 100; // Small delay between batches
+const BATCH_DELAY_MS = 100;
+const MAX_RETRIES = 3;
 
-/**
- * Sleep helper for delays between batches
- */
-const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+/* -------------------------------------------------------------------------- */
+/*                                   HELPERS                                  */
+/* -------------------------------------------------------------------------- */
 
-/**
- * Import data in batches with progress tracking and retry logic
- */
-async function importInBatches(tableName: string, data: any[], batchSize: number = BATCH_SIZE): Promise<ImportResult> {
+const sleep = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, ms));
+
+// function toCamelCase(value: any): any {
+//   if (value === null || value === undefined) return value;
+//   if (Array.isArray(value)) return value.map(toCamelCase);
+//   if (typeof value !== 'object') return value;
+
+//   return Object.entries(value).reduce((acc, [key, val]) => {
+//     const camelKey = key.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+//     acc[camelKey] = toCamelCase(val);
+//     return acc;
+//   }, {} as any);
+// }
+
+function normalizeFaces(card: any) {
+  return card.card_faces.map((face: any) => ({
+    name: face.name,
+    manaCost: face.mana_cost,
+    typeLine: face.type_line,
+    oracleText: face.oracle_text,
+    power: face.power,
+    toughness: face.toughness,
+    imageUris: face.image_uris
+      ? {
+          small: face.image_uris.small,
+          normal: face.image_uris.normal,
+          large: face.image_uris.large,
+          png: face.image_uris.png,
+          artCrop: face.image_uris.art_crop,
+          borderCrop: face.image_uris.border_crop
+        }
+      : undefined
+  }))
+}
+
+function normalizeScryfallCard(card: any) {
+  const base = {
+    id: card.id,
+    cardmarketId: card.cardmarket_id ?? null,
+    name: card.name,
+    lang: card.lang,
+    releasedAt: card.released_at,
+    scryfallUri: card.scryfall_uri,
+    layout: card.layout,
+    colorIdentity: card.color_identity ?? [],
+    keywords: card.keywords ?? [],
+    set: {
+      id: card.set_id,
+      code: card.set,
+      name: card.set_name,
+      type: card.set_type
+    },
+    rarity: card.rarity
+  }
+
+  // 🔁 Multi-faced cards
+  if (Array.isArray(card.card_faces)) {
+    return {
+      ...base,
+      typeLine: card.type_line,
+      producedMana: card.produced_mana ?? [],
+      faces: normalizeFaces(card)
+    }
+  }
+
+  // 🧱 Single-faced cards
+  return {
+    ...base,
+    imageUris: card.image_uris,
+    manaCost: card.mana_cost,
+    typeLine: card.type_line,
+    oracleText: card.oracle_text,
+    power: card.power,
+    toughness: card.toughness,
+    colors: card.colors ?? [],
+    isLegalInCommander: card.legalities?.commander === 'legal',
+    games: card.games ?? [],
+    finishes: card.finishes ?? [],
+    collectorNumber: card.collector_number,
+    flavorText: card.flavor_text,
+    artist: card.artist,
+    edhrecRank: card.edhrec_rank,
+    edhrecUri: card.related_uris?.edhrec
+  }
+}
+
+function mergeWithPrice(cards: ScryfallCard[], prices: CardMarketPrice[]) {
+  const priceMap = new Map(
+    prices.map(p => [p.idProduct, p])
+  )
+
+  return cards.map(card => {
+    const normalized = normalizeScryfallCard(card)
+
+    return {
+      ...normalized,
+      price: normalized.cardmarketId
+        ? priceMap.get(normalized.cardmarketId) ?? null
+        : null
+    }
+  })
+}
+
+function verifySupabaseConnection(): void {
+  try {
+    getSupabaseClient();
+    console.log(`📡 Connected to: ${process.env.SUPABASE_URL}\n`);
+  } catch (error: any) {
+    console.error('❌ Supabase connection failed:', error.message);
+    throw error;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              BATCH IMPORT LOGIC                             */
+/* -------------------------------------------------------------------------- */
+
+async function importInBatches(
+  tableName: string,
+  data: any[],
+  batchSize: number = BATCH_SIZE
+): Promise<ImportResult> {
   const total = data.length;
   let imported = 0;
   let errors = 0;
 
-  console.log(`\nImporting ${total} records into ${tableName}...`);
+  console.log(`\n📥 Importing ${total} records into ${tableName}...`);
 
-  for (let i = 0; i < total; i += batchSize) {
-    const batch = data.slice(i, i + batchSize);
-    const batchNum = Math.floor(i / batchSize) + 1;
-    let retries = 0;
-    const maxRetries = 3;
+  for (let offset = 0; offset < total; offset += batchSize) {
+    const batch = data.slice(offset, offset + batchSize);
+    const batchNumber = Math.floor(offset / batchSize) + 1;
+
+    let attempt = 0;
     let success = false;
-    
-    while (retries < maxRetries && !success) {
+
+    while (!success && attempt < MAX_RETRIES) {
+      attempt++;
+
       try {
-        // For scryfall_data, upsert by id. For prices, just insert (assume table was cleared)
-        const options = tableName === 'scryfall_data' 
-          ? { onConflict: 'id', ignoreDuplicates: false } 
-          : {};
+        const options =
+          tableName === 'card_data'
+            ? { onConflict: 'id', ignoreDuplicates: false }
+            : {};
 
         const { error } = await getSupabaseClient()
           .from(tableName)
           .upsert(batch, options);
 
         if (error) {
-          // Check if it's a timeout error
-          if (error.message.includes('timeout') || error.message.includes('statement timeout')) {
-            retries++;
-            if (retries < maxRetries) {
-              console.log(`\n  ⚠️  Timeout in batch ${batchNum}, retrying (${retries}/${maxRetries})...`);
-              await sleep(2000 * retries); // Exponential backoff
-              continue;
-            }
+          if (isTimeoutError(error) && attempt < MAX_RETRIES) {
+            console.log(
+              `  ⚠️  Timeout in batch ${batchNumber}, retry ${attempt}/${MAX_RETRIES}`
+            );
+            await sleep(2000 * attempt);
+            continue;
           }
-          console.error(`\nError in batch ${batchNum}:`, error.message);
+
+          console.error(`  ❌ Batch ${batchNumber} failed:`, error.message);
           errors++;
-        } else {
-          imported += batch.length;
-          success = true;
-          const progress = ((imported / total) * 100).toFixed(1);
-          process.stdout.write(`\r  Progress: ${imported}/${total} (${progress}%) - ${errors} errors`);
+          break;
         }
+
+        imported += batch.length;
+        success = true;
+
+        const progress = ((imported / total) * 100).toFixed(1);
+        process.stdout.write(
+          `\r  Progress: ${imported}/${total} (${progress}%) | Errors: ${errors}`
+        );
       } catch (err: any) {
-        console.error(`\nUnexpected error in batch ${batchNum}:`, err.message);
+        console.error(`  ❌ Unexpected error in batch ${batchNumber}:`, err.message);
         errors++;
+        break;
       }
-      
-      break; // Exit retry loop if not a timeout error
     }
-    
-    // Small delay between batches to avoid overwhelming the database
-    if (i + batchSize < total) {
+
+    if (offset + batchSize < total) {
       await sleep(BATCH_DELAY_MS);
     }
   }
@@ -139,277 +250,198 @@ async function importInBatches(tableName: string, data: any[], batchSize: number
   return { imported, errors };
 }
 
-/**
- * Fetch Scryfall bulk data metadata
- */
-async function fetchScryfallBulkMetadata(): Promise<BulkDataItem> {
-  console.log('🔍 Fetching Scryfall bulk data metadata...');
-  const response: AxiosResponse<BulkDataResponse> = await axios.get(SCRYFALL_BULK_API);
-  
-  // Find the unique_artwork bulk data
-  const uniqueArtwork = response.data.data.find(item => item.type === 'unique_artwork');
-  
-  if (!uniqueArtwork) {
-    throw new Error('Could not find unique_artwork bulk data');
-  }
-  
-  console.log(`  ✓ Found: ${uniqueArtwork.name}`);
-  console.log(`  📦 Size: ${(uniqueArtwork.size / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`  📅 Updated: ${uniqueArtwork.updated_at}`);
-  
-  return uniqueArtwork;
+function isTimeoutError(error: { message?: string }): boolean {
+  return Boolean(
+    error.message?.includes('timeout') ||
+    error.message?.includes('statement timeout')
+  );
 }
 
-/**
- * Download and decompress gzipped JSON data
- */
-async function downloadAndDecompress(url: string, name: string): Promise<any> {
-  console.log(`\n⬇️  Downloading ${name}...`);
-  
-  const response: AxiosResponse<ArrayBuffer> = await axios.get(url, {
-    responseType: 'arraybuffer',
-    decompress: false, // Don't auto-decompress, we'll handle it manually
-    headers: {
-      'Accept-Encoding': 'gzip'
-    },
-    onDownloadProgress: (progressEvent) => {
-      if (progressEvent.total) {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        process.stdout.write(`\r  Progress: ${percentCompleted}% (${(progressEvent.loaded / 1024 / 1024).toFixed(2)} MB)`);
-      }
-    }
-  });
-  
-  console.log('\n  ✓ Download complete');
-  
-  let jsonData: any;
-  
-  // Check if content is gzipped by looking at magic number
-  const buffer = Buffer.from(response.data);
-  const isGzipped = buffer[0] === 0x1f && buffer[1] === 0x8b;
-  
-  if (isGzipped) {
-    console.log('  🗜️  Decompressing gzipped data...');
-    const decompressed = await gunzip(buffer);
-    jsonData = JSON.parse(decompressed.toString('utf8'));
-  } else {
-    console.log('  📄 Data is not compressed, parsing directly...');
-    jsonData = JSON.parse(buffer.toString('utf8'));
-  }
-  
-  console.log(`  ✓ Parsed JSON (${Array.isArray(jsonData) ? jsonData.length : 'unknown'} records)\n`);
-  
-  return jsonData;
-}
+/* -------------------------------------------------------------------------- */
+/*                             DOWNLOAD UTILITIES                              */
+/* -------------------------------------------------------------------------- */
 
-/**
- * Download JSON data (not compressed)
- */
-async function downloadJSON(url: string, name: string): Promise<any> {
-  console.log(`\n⬇️  Downloading ${name}...`);
-  
+async function downloadJSON<T>(url: string, label: string): Promise<T> {
+  console.log(`\n⬇️  Downloading ${label}...`);
+
   const response = await axios.get(url, {
-    onDownloadProgress: (progressEvent) => {
-      if (progressEvent.total) {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        process.stdout.write(`\r  Progress: ${percentCompleted}% (${(progressEvent.loaded / 1024 / 1024).toFixed(2)} MB)`);
+    onDownloadProgress: event => {
+      if (event.total) {
+        const percent = Math.round((event.loaded * 100) / event.total);
+        process.stdout.write(
+          `\r  Progress: ${percent}% (${(event.loaded / 1024 / 1024).toFixed(2)} MB)`
+        );
       }
     }
   });
-  
+
   console.log('\n  ✓ Download complete\n');
-  
   return response.data;
 }
 
-/**
- * Import Scryfall data (unique_artwork)
- */
-async function importScryfallData(): Promise<ImportResult> {
-  console.log('📚 Loading Scryfall data...');
-  
-  // Fetch bulk data metadata
-  const bulkMetadata = await fetchScryfallBulkMetadata();
-  
-  // Download and decompress the actual card data
-  const cardData: ScryfallCard[] = await downloadAndDecompress(bulkMetadata.download_uri, 'Scryfall Unique Artwork');
-  
-  console.log(`  📊 Total cards: ${cardData.length}`);
+async function downloadAndDecompressJSON<T>(
+  url: string,
+  label: string
+): Promise<T> {
+  console.log(`\n⬇️  Downloading ${label}...`);
 
-  // Transform data to match database schema with camelCase
-  const products = cardData.map(card => ({
-    id: card.id, // Use Scryfall's UUID as the ID
-    name: card.name,
-    data: toCamelCase(card), // Convert to camelCase and store in JSONB
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }));
+  const response: AxiosResponse<ArrayBuffer> = await axios.get(url, {
+    responseType: 'arraybuffer',
+    decompress: false,
+    headers: { 'Accept-Encoding': 'gzip' }
+  });
 
-  return await importInBatches('scryfall_data', products);
+  console.log('  ✓ Download complete');
+
+  const buffer = Buffer.from(response.data);
+  const isGzipped = buffer[0] === 0x1f && buffer[1] === 0x8b;
+
+  const jsonBuffer = isGzipped ? await gunzip(buffer) : buffer;
+  const parsed = JSON.parse(jsonBuffer.toString('utf8'));
+
+  console.log(
+    `  ✓ Parsed JSON (${Array.isArray(parsed) ? parsed.length : 'unknown'} records)\n`
+  );
+
+  return parsed;
 }
 
-/**
- * Import CardMarket price data
- */
-async function importPriceData(): Promise<ImportResult> {
-  console.log('💰 Loading CardMarket price data...');
-  
-  // Download price guide JSON
-  const jsonData: PriceGuideData = await downloadJSON(CARDMARKET_PRICE_GUIDE, 'CardMarket Price Guide');
-  
-  console.log(`  📊 Total price entries: ${jsonData.priceGuides.length}`);
+/* -------------------------------------------------------------------------- */
+/*                               IMPORT TASKS                                 */
+/* -------------------------------------------------------------------------- */
 
-  // Transform data to match database schema with camelCase
-  const priceGuides = jsonData.priceGuides.map((price) => ({
-    // id is auto-generated
-    scryfall_id: price.idProduct,
-    data: toCamelCase(price), // Convert to camelCase and store in JSONB
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }));
+async function fetchScryfallBulkMetadata(): Promise<BulkDataItem> {
+  console.log('🔍 Fetching Scryfall bulk metadata...');
 
-  return await importInBatches('cardmarket_price_guide', priceGuides);
-}
+  const response: AxiosResponse<BulkDataResponse> =
+    await axios.get(SCRYFALL_BULK_API);
 
-/**
- * Clear all data from tables (optional for full sync)
- * Uses SQL TRUNCATE for efficient deletion via stored procedure
- */
-async function clearTables(): Promise<void> {
-  console.log('🗑️  Clearing existing data...');
-  
-  try {
-    const client = getSupabaseClient();
-    
-    // Try to use the stored procedure for efficient TRUNCATE
-    console.log('  🔄 Attempting to clear tables via stored procedure...');
-    const { error: rpcError } = await client.rpc('clear_all_data');
+  const item = response.data.data.find(d => d.type === 'unique_artwork');
 
-    if (rpcError) {
-      // Stored procedure doesn't exist or failed, use fallback DELETE method
-      console.log('  ⚠️  Stored procedure not available, using DELETE method...');
-      console.log('  ⚠️  RPC Error:', rpcError.message);
-      
-      // Fallback: Use DELETE with a simpler, more reliable approach
-      // Clear price data first
-      console.log('  🔄 Deleting price data...');
-      const { error: priceError, count: priceCount } = await client
-        .from('cardmarket_price_guide')
-        .delete()
-        .not('id', 'is', null); // Delete all where id is not null (i.e., all records)
-      
-      if (priceError && priceError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('  ❌ Error clearing price data:', priceError.message);
-        console.error('  Full error:', JSON.stringify(priceError, null, 2));
-        throw new Error(`Failed to clear price data: ${priceError.message}`);
-      }
-      console.log(`  ✓ Price data cleared (${priceCount || 'unknown'} rows)`);
-
-      // Clear scryfall data
-      console.log('  🔄 Deleting scryfall data...');
-      const { error: scryfallError, count: scryfallCount } = await client
-        .from('scryfall_data')
-        .delete()
-        .not('id', 'is', null); // Delete all where id is not null
-      
-      if (scryfallError && scryfallError.code !== 'PGRST116') {
-        console.error('  ❌ Error clearing scryfall data:', scryfallError.message);
-        console.error('  Full error:', JSON.stringify(scryfallError, null, 2));
-        throw new Error(`Failed to clear scryfall data: ${scryfallError.message}`);
-      }
-      console.log(`  ✓ Scryfall data cleared (${scryfallCount || 'unknown'} rows)`);
-    } else {
-      console.log('  ✓ All tables cleared successfully via stored procedure');
-    }
-    
-  } catch (err: any) {
-    console.error('  ❌ Fatal error during table clearing:', err.message);
-    console.error('  Stack:', err.stack);
-    throw err; // Re-throw to fail the sync
+  if (!item) {
+    throw new Error('unique_artwork bulk data not found');
   }
 
-  console.log();
+  console.log(`  ✓ ${item.name}`);
+  console.log(`  📦 ${(item.size / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`  📅 Updated: ${item.updated_at}`);
+
+  return item;
 }
 
-/**
- * Main sync function
- */
-async function sync(clearFirst: boolean = true): Promise<SyncResult> {
-  const startTime = Date.now();
+async function getScryfallCards(): Promise<ScryfallCard[]> {
+  console.log('📚 Fetching Scryfall card data...')
+  const bulk = await fetchScryfallBulkMetadata()
+  const cards: ScryfallCard[] = await downloadAndDecompressJSON(
+    bulk.download_uri,
+    'Scryfall Unique Artwork'
+  );
+  return cards.filter(card => card.set_type !== 'memorabilia' && card.set_type !== 'token');
+}
 
+async function getPriceData(): Promise<CardMarketPrice[]> {
+  console.log('💰 Fetching CardMarket price data...')
+  const data = await downloadJSON<PriceGuideData>(
+    CARDMARKET_PRICE_GUIDE,
+    'CardMarket Price Guide'
+  );
+  return data.priceGuides;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              CLEARING LOGIC                                 */
+/* -------------------------------------------------------------------------- */
+
+async function clearTables(): Promise<void> {
+  console.log('🗑️  Clearing existing data...');
+
+  const { error } = await getSupabaseClient().rpc('clear_all_data');
+
+  if (error) {
+    console.error('❌ clear_all_data failed:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('  ✓ Tables cleared');
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                   SYNC                                     */
+/* -------------------------------------------------------------------------- */
+
+async function sync(): Promise<SyncResult> {
+  const start = Date.now();
+
+  printHeader();
+  verifySupabaseConnection();
+
+  try {
+    await clearTables();
+
+    const scryfallCards = await getScryfallCards();
+    const priceData = await getPriceData();
+
+    const mergedData = mergeWithPrice(scryfallCards, priceData);
+    const mappedData = mergedData.map(card => ({
+      id: card.id,
+      name: card.name,
+      cardmarket_id: card.cardmarketId,
+      data: card,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+    
+    const importResult = await importInBatches('card_data', mappedData);
+
+    return printSummary(start, importResult);
+  } catch (error: any) {
+    console.error('\n❌ Fatal sync error:', error.message);
+    throw error;
+  }
+}
+
+function printHeader(): void {
   console.log('╔══════════════════════════════════════╗');
   console.log('║   ManaLedger Data Sync to Supabase   ║');
   console.log('╚══════════════════════════════════════╝\n');
-
-  // Verify Supabase connection by initializing client
-  try {
-    getSupabaseClient();
-    console.log(`📡 Connected to: ${process.env.SUPABASE_URL}\n`);
-  } catch (error: any) {
-    console.error('❌ Error:', error.message);
-    throw error;
-  }
-
-  try {
-    // Clear existing data if requested
-    if (clearFirst) {
-      await clearTables();
-    }
-
-    // Import scryfall data first (referenced by price data)
-    const scryfallResult = await importScryfallData();
-
-    // Import price data
-    const priceResult = await importPriceData();
-
-    // Summary
-    const duration = ((Date.now() - startTime) / 1000);
-    console.log('╔══════════════════════════════════════╗');
-    console.log('║            Sync Complete!            ║');
-    console.log('╚══════════════════════════════════════╝');
-    console.log(`\n📊 Summary:`);
-    console.log(`  Scryfall: ${scryfallResult.imported} records`);
-    console.log(`  Prices:   ${priceResult.imported} records`);
-    console.log(`  Duration: ${duration.toFixed(2)}s`);
-    console.log(`  Errors:   ${scryfallResult.errors + priceResult.errors} batches failed\n`);
-
-    if (scryfallResult.errors + priceResult.errors > 0) {
-      console.log('⚠️  Some batches failed. Check logs above for details.\n');
-    }
-
-    // Return results for API usage
-    return {
-      scryfallResult,
-      priceResult,
-      duration: parseFloat(duration.toFixed(2)),
-      totalErrors: scryfallResult.errors + priceResult.errors
-    };
-
-  } catch (error: any) {
-    console.error('\n❌ Fatal error during sync:', error.message);
-    console.error(error.stack);
-    throw error;
-  }
 }
 
-// Only run directly if this is the main module (not required by another file)
+function printSummary(
+  start: number,
+  importResult: ImportResult,
+): SyncResult {
+  const duration = (Date.now() - start) / 1000;
+  const totalErrors = importResult.errors;
+
+  console.log('╔══════════════════════════════════════╗');
+  console.log('║            Sync Complete!            ║');
+  console.log('╚══════════════════════════════════════╝');
+  console.log('\n📊 Summary:');
+  console.log(`  Scryfall: ${importResult.imported}`);
+  console.log(`  Duration: ${duration.toFixed(2)}s`);
+  console.log(`  Errors:   ${totalErrors}\n`);
+
+  if (totalErrors > 0) {
+    console.log('⚠️  Some batches failed. Check logs above.\n');
+  }
+
+  return {
+    importResult: importResult,
+    duration: parseFloat(duration.toFixed(2)),
+    totalErrors
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                   CLI                                      */
+/* -------------------------------------------------------------------------- */
+
 if (require.main === module) {
-  const clearFirst = process.argv.includes('--clear') || process.argv.includes('-c');
-  const skipClear = process.argv.includes('--no-clear');
-
-  if (skipClear) {
-    console.log('ℹ️  Running sync without clearing (upsert mode)\n');
-    sync(false).catch(error => {
-      console.error('Sync failed:', error.message);
-      process.exit(1);
-    });
-  } else {
-    sync(clearFirst || true).catch(error => {
-      console.error('Sync failed:', error.message);
-      process.exit(1);
-    });
-  }
+  sync().catch(err => {
+    console.error('Sync failed:', err.message);
+    process.exit(1);
+  });
 }
 
-export { importPriceData, importScryfallData, sync };
+export { sync };
 

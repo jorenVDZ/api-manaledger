@@ -12,7 +12,7 @@ export const cardRepository = {
     const supabase = getSupabaseClient();
 
     const { data: cardData, error } = await supabase
-      .from('scryfall_data')
+      .from('card_data')
       .select('data')
       .eq('id', scryfallId)
       .single();
@@ -39,7 +39,7 @@ export const cardRepository = {
 
     // Get total count excluding memorabilia
     const { count, error: countError } = await supabase
-      .from('scryfall_data')
+      .from('card_data')
       .select('*', { count: 'exact', head: true })
       .neq('data->>set_type', 'memorabilia')
       .order('name', { ascending: true });
@@ -50,7 +50,7 @@ export const cardRepository = {
 
     // Get paginated cards excluding memorabilia
     const { data: cardsData, error } = await supabase
-      .from('scryfall_data')
+      .from('card_data')
       .select('data')
       .neq('data->>set_type', 'memorabilia')
       .order('name', { ascending: true })
