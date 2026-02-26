@@ -25,7 +25,10 @@ export const typeDefs = `#graphql
   type ImageUris {
     small: String
     normal: String
-    [key: String!]: String
+    large: String
+    png: String
+    artCrop: String
+    borderCrop: String
   }
 
   """
@@ -35,6 +38,7 @@ export const typeDefs = `#graphql
     name: String!
     manaCost: String
     typeLine: String
+    imageUris: ImageUris
     oracleText: String
     colors: [String!]
     power: String

@@ -15,11 +15,7 @@ export interface Card {
     type: string;
   };
   rarity: string;
-  imageUris?: {
-    small: string;
-    normal: string;
-    [key: string]: string;
-  };
+  imageUris?: ImageUris;
   manaCost?: string;
   typeLine: string;
   oracleText?: string;
@@ -39,12 +35,22 @@ export interface Card {
     name: string;
     manaCost: string;
     typeLine: string;
+    imageUris?: ImageUris;
     oracleText: string;
     colors: string[];
     power: string;
     toughness: string;
   }[];
   price?: CardPrice | null;
+}
+
+export interface ImageUris {
+  small: string
+  normal: string
+  large: string
+  png: string
+  artCrop: string
+  borderCrop: string
 }
 
 export interface CardPrice {
