@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql';
-import { cardRepository } from '../repositories/cardRepository';
-import { GraphQLContext } from '../types/context';
+import { cardRepository } from '../../repositories/cardRepository';
+import { GraphQLContext } from '../graphqlContext';
 
 export const cardQueries = {
   /**
@@ -40,36 +40,7 @@ export const cardQueries = {
       });
     }
   },
-
-  /**
-   * Get all cards with pagination
-   */
-  cards: async (_parent: any, args: { limit: number; offset: number }, context: GraphQLContext) => {
-    if (!context.user) {
-      throw new GraphQLError('Not authenticated', {
-        extensions: { code: 'UNAUTHENTICATED' }
-      });
-    }
-
-    const limit = Math.min(args.limit, 100); // Cap at 100
-    const offset = args.offset || 0;
-
-    try {
-      const { cards, total } = await cardRepository.findAll(limit, offset);
-      const hasMore = offset + limit < total;
-
-      return {
-        cards,
-total,
-        hasMore
-      };
-    } catch (error) {
-      throw new GraphQLError('Failed to fetch cards', {
-        extensions: { code: 'INTERNAL_SERVER_ERROR', originalError: error }
-      });
-    }
-  },
-
+  
   /**
    * Search cards by name (fuzzy matching)
    */

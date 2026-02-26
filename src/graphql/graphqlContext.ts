@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '../../services/supabase';
+import { getSupabaseClient } from '../services/supabase';
 
 export interface GraphQLContext {
   user?: {

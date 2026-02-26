@@ -2,6 +2,7 @@ import axios, { AxiosResponse } from 'axios';
 import 'dotenv/config';
 import { promisify } from 'util';
 import * as zlib from 'zlib';
+import { Card } from '../models/card';
 import { getSupabaseClient } from '../services/supabase';
 
 const gunzip = promisify(zlib.gunzip);
@@ -67,18 +68,6 @@ const MAX_RETRIES = 3;
 const sleep = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms));
 
-// function toCamelCase(value: any): any {
-//   if (value === null || value === undefined) return value;
-//   if (Array.isArray(value)) return value.map(toCamelCase);
-//   if (typeof value !== 'object') return value;
-
-//   return Object.entries(value).reduce((acc, [key, val]) => {
-//     const camelKey = key.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
-//     acc[camelKey] = toCamelCase(val);
-//     return acc;
-//   }, {} as any);
-// }
-
 function normalizeFaces(card: any) {
   return card.card_faces.map((face: any) => ({
     name: face.name,
@@ -100,7 +89,7 @@ function normalizeFaces(card: any) {
   }))
 }
 
-function normalizeScryfallCard(card: any) {
+function normalizeScryfallCard(card: any): Card {
   const base = {
     id: card.id,
     cardmarketId: card.cardmarket_id ?? null,
@@ -151,19 +140,41 @@ function normalizeScryfallCard(card: any) {
   }
 }
 
+function normalizePrice(price: CardMarketPrice) {
+  return {
+    avg: price.avg,
+    low: price.low,
+    avg1: price.avg1,
+    avg7: price.avg7,
+    avg30: price.avg30,
+    trend: price.trend,
+
+    avgFoil: price["avg-foil"],
+    lowFoil: price["low-foil"],
+    avg1Foil: price["avg1-foil"],
+    avg7Foil: price["avg7-foil"],
+    avg30Foil: price["avg30-foil"],
+    trendFoil: price["trend-foil"],
+
+    idProduct: price.idProduct,
+    idCategory: price.idCategory
+  }
+}
+
 function mergeWithPrice(cards: ScryfallCard[], prices: CardMarketPrice[]) {
   const priceMap = new Map(
-    prices.map(p => [p.idProduct, p])
+    prices.map(p => [p.idProduct.toString(), p])
   )
 
   return cards.map(card => {
     const normalized = normalizeScryfallCard(card)
+    const price = normalized.cardmarketId
+      ? priceMap.get(normalized.cardmarketId.toString())
+      : null
 
     return {
       ...normalized,
-      price: normalized.cardmarketId
-        ? priceMap.get(normalized.cardmarketId) ?? null
-        : null
+      price: price ? normalizePrice(price) : null
     }
   })
 }

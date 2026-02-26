@@ -3,9 +3,9 @@ import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
 import 'dotenv/config';
 import express from 'express';
-import { resolvers } from './graphql/resolvers';
-import { createContext, GraphQLContext } from './graphql/types/context';
-import { typeDefs } from './graphql/types/schema';
+import { resolvers } from './src/graphql';
+import { GraphQLContext, createContext } from './src/graphql/graphqlContext';
+import { typeDefs } from './src/graphql/schema';
 
 const app = express();
 const PORT = process.env.PORT || 3000;

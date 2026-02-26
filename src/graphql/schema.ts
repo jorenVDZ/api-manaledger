@@ -225,110 +225,6 @@ export const typeDefs = `#graphql
     hasMore: Boolean!
   }
 
-  """
-  Collection item - represents a card in a user's collection
-  """
-  type CollectionItem {
-    """Database ID"""
-    id: Int!
-    
-    """User ID who owns this item"""
-    userId: String!
-    
-    """Scryfall ID of the card"""
-    scryfallId: String!
-    
-    """Card data (populated from card itself)"""
-    card: Card
-    
-    """Number of copies owned"""
-    amount: Int!
-    
-    """Whether the card is foil"""
-    isFoil: Boolean!
-    
-    """Price paid for this item"""
-    pricePaid: Float
-    
-    """Whether this came from a booster pack"""
-    fromBooster: Boolean
-    
-    """Timestamp when item was added"""
-    createdAt: String!
-    
-    """Timestamp when item was last updated"""
-    updatedAt: String!
-  }
-
-  """
-  Paginated collection items response
-  """
-  type CollectionConnection {
-    items: [CollectionItem!]!
-    total: Int!
-    hasMore: Boolean!
-  }
-
-  """
-  Collection statistics
-  """
-  type CollectionStats {
-    """Total number of individual cards (sum of amounts)"""
-    totalCards: Int!
-    
-    """Total number of unique entries"""
-    totalItems: Int!
-    
-    """Number of foil items"""
-    foilCount: Int!
-    
-    """Total value of collection"""
-    totalValue: Float!
-    
-    """Number of cards from boosters"""
-    boosterCount: Int!
-    
-    """Number of unique cards"""
-    uniqueCards: Int!
-  }
-
-  """
-  Input for adding a card to collection
-  """
-  input AddCollectionItemInput {
-    """Scryfall ID of the card"""
-    scryfallId: String!
-    
-    """Number of copies"""
-    amount: Int!
-    
-    """Whether the card is foil"""
-    isFoil: Boolean!
-    
-    """Price paid for this item"""
-    pricePaid: Float
-    
-    """Whether this came from a booster pack"""
-    fromBooster: Boolean
-  }
-
-  """
-  Input for updating a collection item
-  """
-  input UpdateCollectionItemInput {
-    """Number of copies"""
-    amount: Int
-    
-    """Whether the card is foil"""
-    isFoil: Boolean
-    
-    """Price paid for this item"""
-    pricePaid: Float
-    
-    """Whether this came from a booster pack"""
-    fromBooster: Boolean
-  }
-
   type Query {
     """
     Get card details by Scryfall ID
@@ -336,62 +232,10 @@ export const typeDefs = `#graphql
     Requires authentication
     """
     card(scryfallId: ID!): Card!
-
-    """
-    Get all cards with pagination
-    Requires authentication
-    """
-    cards(limit: Int = 20, offset: Int = 0): CardsConnection!
-
     """
     Search cards by name (fuzzy matching)
     Requires authentication
     """
     searchCards(query: String!, limit: Int = 20, offset: Int = 0): CardsConnection!
-
-    # Collection queries
-    """
-    Get user's collection with pagination
-    Requires authentication
-    """
-    myCollection(limit: Int = 20, offset: Int = 0): CollectionConnection!
-
-    """
-    Get collection items by card name (fuzzy matching)
-    Requires authentication
-    """
-    collectionItemsByName(name: String!): [CollectionItem!]!
-
-    """
-    Get all collection items for a specific card
-    Requires authentication
-    """
-    collectionItemsByCard(scryfallId: String!): [CollectionItem!]!
-
-    """
-    Get collection statistics
-    Requires authentication
-    """
-    collectionStats: CollectionStats!
-  }
-
-  type Mutation {
-    """
-    Add a card to the collection
-    Requires authentication
-    """
-    addCollectionItem(input: AddCollectionItemInput!): CollectionItem!
-
-    """
-    Update a collection item
-    Requires authentication
-    """
-    updateCollectionItem(id: Int!, input: UpdateCollectionItemInput!): CollectionItem!
-
-    """
-    Delete a collection item
-    Requires authentication
-    """
-    deleteCollectionItem(id: Int!): Boolean!
   }
 `;
