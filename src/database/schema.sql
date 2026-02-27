@@ -53,34 +53,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- =============================================================================
--- User Collections Tables
--- =============================================================================
-
--- Table to store individual cards in a user's collection
-CREATE TABLE IF NOT EXISTS collection_items (
-    id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    card_id TEXT NOT NULL REFERENCES card_data(id) ON DELETE CASCADE,
-    data JSONB NOT NULL, -- Contains: id, userId, cardId, amount, isFoil, pricePaid, fromBooster (in camelCase)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes for collection_items
-CREATE INDEX idx_collection_items_user_id ON collection_items(user_id);
-CREATE INDEX idx_collection_items_card_id ON collection_items(card_id);
-CREATE INDEX idx_collection_items_user_card ON collection_items(user_id, card_id);
-CREATE INDEX idx_collection_items_created ON collection_items(created_at);
-
--- GIN index for JSONB data
-CREATE INDEX idx_collection_items_data_gin ON collection_items USING GIN (data);
-
--- Trigger for auto-update timestamps
-CREATE TRIGGER update_collection_items_updated_at 
-    BEFORE UPDATE ON collection_items
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 -- Function to get the latest printing of each card matching a search term, along with total count for pagination
 create function get_latest_printing_with_count(
   search text,
@@ -120,3 +92,28 @@ as $$
   offset off
   limit coalesce(lim, 2147483647);
 $$;
+
+-- =============================================================================
+-- Wants List: users can create multiple wants lists containing card Scryfall IDs
+-- =============================================================================
+
+-- Ensure UUID generator is available for IDs
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE IF NOT EXISTS wants_lists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb, -- array of objects: [{scryfall_id, amount, specific_printing_id, foil}]
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for fast lookups
+CREATE INDEX IF NOT EXISTS idx_wants_lists_user ON wants_lists(user_id);
+CREATE INDEX IF NOT EXISTS idx_wants_lists_items_gin ON wants_lists USING GIN (items);
+
+-- Triggers to keep `updated_at` current
+CREATE TRIGGER update_wants_lists_updated_at
+  BEFORE UPDATE ON wants_lists
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

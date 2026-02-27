@@ -55,4 +55,65 @@ export const cardRepository = {
 
     return { cards, total };
   },
+
+  /**
+   * Given a Scryfall ID for a printing, find the cheapest printing of the same card name.
+   * If `foil` is true, prefer foil prices when available.
+   */
+  async getCheapestPrinting(scryfallId: string, foil: boolean = false): Promise<Card | null> {
+    const supabase = getSupabaseClient();
+
+    // Get the base card to obtain the name
+    const { data: baseRow, error: baseError } = await supabase
+      .from('card_data')
+      .select('data, name')
+      .eq('id', scryfallId)
+      .single();
+
+    if (baseError) {
+      if (baseError.code === 'PGRST116') return null;
+      throw baseError;
+    }
+
+    if (!baseRow || !baseRow.data) return null;
+
+    const name: string = baseRow.name || (baseRow.data && baseRow.data.name) || '';
+    if (!name) return null;
+
+    // Fetch all printings that share the same name
+    const { data: rows, error } = await supabase
+      .from('card_data')
+      .select('data')
+      .eq('name', name);
+
+    if (error) throw error;
+
+    const cards: Card[] = (rows || []).map((r: any) => r.data as Card).filter(Boolean);
+
+    if (cards.length === 0) return null;
+
+    // Compute a numeric price for each printing; prefer `low` for non-foil, `avgFoil` for foil.
+    const priceFor = (c: Card) => {
+      if (foil) {
+        const pf = c.price?.avgFoil ?? c.price?.low ?? c.price?.avg ?? Number.POSITIVE_INFINITY;
+        return typeof pf === 'number' ? pf : Number.POSITIVE_INFINITY;
+      }
+      const p = c.price?.low ?? c.price?.avg ?? Number.POSITIVE_INFINITY;
+      return typeof p === 'number' ? p : Number.POSITIVE_INFINITY;
+    };
+
+    let best = cards[0];
+    let bestPrice = priceFor(best);
+
+    for (let i = 1; i < cards.length; i++) {
+      const c = cards[i];
+      const p = priceFor(c);
+      if (p < bestPrice) {
+        best = c;
+        bestPrice = p;
+      }
+    }
+
+    return best;
+  }
 };

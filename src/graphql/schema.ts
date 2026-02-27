@@ -102,5 +102,47 @@ export const typeDefs = `#graphql
   type Query {
     card(scryfallId: ID!): Card!
     searchCards(query: String!, limit: Int = 20, offset: Int = 0): CardsConnection!
+    getMyWantsLists: [WantsList!]!
+    getWantsListById(id: ID!): WantsList
+  }
+  
+  input WantsListItemInput {
+    scryfallId: ID!
+    amount: Int = 1
+    specificPrinting: Boolean = false
+    foil: Boolean = false
+  }
+
+  input WantsListItemPatch {
+    amount: Int
+    specificPrinting: Boolean
+    foil: Boolean
+  }
+
+  type WantsListItem {
+    scryfallId: ID!
+    amount: Int!
+    specificPrinting: Boolean
+    foil: Boolean!
+    printingScryfallId: ID
+  }
+
+  type WantsList {
+    id: ID!
+    userId: ID!
+    name: String!
+    items: [WantsListItem!]!
+    createdAt: String
+    updatedAt: String
+  }
+
+  type Mutation {
+    createWantsList(name: String!, items: [WantsListItemInput!]): WantsList!
+    updateWantsList(id: ID!, name: String, items: [WantsListItemInput!]): WantsList!
+    deleteWantsList(id: ID!): Boolean!
+
+    addWantsListItem(wantsListId: ID!, item: WantsListItemInput!): WantsList!
+    updateWantsListItem(wantsListId: ID!, scryfallId: ID!, patch: WantsListItemPatch!): WantsList!
+    removeWantsListItem(wantsListId: ID!, scryfallId: ID!): WantsList!
   }
 `;
