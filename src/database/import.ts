@@ -69,24 +69,28 @@ const sleep = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms));
 
 function normalizeFaces(card: any) {
-  return card.card_faces.map((face: any) => ({
-    name: face.name,
-    manaCost: face.mana_cost,
-    typeLine: face.type_line,
-    oracleText: face.oracle_text,
-    power: face.power,
-    toughness: face.toughness,
-    imageUris: face.image_uris
-      ? {
-          small: face.image_uris.small,
-          normal: face.image_uris.normal,
-          large: face.image_uris.large,
-          png: face.image_uris.png,
-          artCrop: face.image_uris.art_crop,
-          borderCrop: face.image_uris.border_crop
-        }
-      : undefined
-  }))
+  return card.card_faces.map((face: any) => {
+    const image_uris = face.image_uris ?? card.image_uris;
+
+    return {
+      name: face.name,
+      manaCost: face.mana_cost,
+      typeLine: face.type_line,
+      oracleText: face.oracle_text,
+      power: face.power,
+      toughness: face.toughness,
+      imageUris: image_uris
+        ? {
+            small: image_uris.small,
+            normal: image_uris.normal,
+            large: image_uris.large,
+            png: image_uris.png,
+            artCrop: image_uris.art_crop,
+            borderCrop: image_uris.border_crop
+          }
+        : undefined
+    };
+  })
 }
 
 function normalizeScryfallCard(card: any): Card {
@@ -348,7 +352,12 @@ async function getScryfallCards(): Promise<ScryfallCard[]> {
     bulk.download_uri,
     'Scryfall Unique Artwork'
   );
-  return cards.filter(card => card.set_type !== 'memorabilia' && card.set_type !== 'token');
+  return cards.filter(card =>
+    card.set_type !== 'memorabilia' &&
+    card.set_type !== 'token' &&
+    Array.isArray(card.games) &&
+    card.games.includes('paper')
+  );
 }
 
 async function getPriceData(): Promise<CardMarketPrice[]> {
