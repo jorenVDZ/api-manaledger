@@ -115,6 +115,7 @@ function normalizeScryfallCard(card: any): Card {
       ...base,
       typeLine: card.type_line,
       producedMana: card.produced_mana ?? [],
+      imageUris: card.image_uris,
       faces: normalizeFaces(card)
     }
   }
