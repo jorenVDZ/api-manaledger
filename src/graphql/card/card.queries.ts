@@ -77,4 +77,33 @@ export const cardQueries = {
       });
     }
   }
+  ,
+
+  /**
+   * Get all printings for a card given a Scryfall ID for one printing
+   */
+  cardPrintings: async (_parent: any, args: { scryfallId: string }, context: GraphQLContext) => {
+    if (!context.user) {
+      throw new GraphQLError('Not authenticated', {
+        extensions: { code: 'UNAUTHENTICATED' }
+      });
+    }
+
+    const scryfallId = args.scryfallId.trim();
+    if (!scryfallId) {
+      throw new GraphQLError('Invalid Scryfall ID', {
+        extensions: { code: 'BAD_USER_INPUT' }
+      });
+    }
+
+    try {
+      const printings = await cardRepository.getAllPrintings(scryfallId);
+      return printings;
+    } catch (error) {
+      console.error('Error in cardPrintings resolver:', error);
+      throw new GraphQLError('Failed to fetch card printings', {
+        extensions: { code: 'INTERNAL_SERVER_ERROR', originalError: error }
+      });
+    }
+  }
 };

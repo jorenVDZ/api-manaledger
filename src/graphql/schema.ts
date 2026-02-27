@@ -102,6 +102,7 @@ export const typeDefs = `#graphql
   type Query {
     card(scryfallId: ID!): Card!
     searchCards(query: String!, limit: Int = 20, offset: Int = 0): CardsConnection!
+    cardPrintings(scryfallId: ID!): [Card!]!
     getMyWantsLists: [WantsList!]!
     getWantsListById(id: ID!): WantsList
   }

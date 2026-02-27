@@ -116,4 +116,39 @@ export const cardRepository = {
 
     return best;
   }
+,
+
+  /**
+   * Get all printings for the same card (by name) given a Scryfall ID for one printing
+   */
+  async getAllPrintings(scryfallId: string): Promise<Card[]> {
+    const supabase = getSupabaseClient();
+
+    // Find the base row to obtain the card name
+    const { data: baseRow, error: baseError } = await supabase
+      .from('card_data')
+      .select('data, name')
+      .eq('id', scryfallId)
+      .single();
+
+    if (baseError) {
+      if (baseError.code === 'PGRST116') return [];
+      throw baseError;
+    }
+
+    if (!baseRow) return [];
+
+    const name: string = baseRow.name || (baseRow.data && baseRow.data.name) || '';
+    if (!name) return [];
+
+    const { data: rows, error } = await supabase
+      .from('card_data')
+      .select('data')
+      .eq('name', name);
+
+    if (error) throw error;
+
+    const cards: Card[] = (rows || []).map((r: any) => r.data as Card).filter(Boolean);
+    return cards;
+  }
 };
