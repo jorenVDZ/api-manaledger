@@ -58,9 +58,22 @@ export const cardQueries = {
 
     const searchQuery = args.query.trim();
     if (!searchQuery) {
-      throw new GraphQLError('Search query cannot be empty', {
-        extensions: { code: 'BAD_USER_INPUT' }
+      const emptyConnection = connectionFromArraySlice([], args as any, {
+        sliceStart: 0,
+        arrayLength: 0
       });
+
+      const pi = emptyConnection.pageInfo || ({} as any);
+      return {
+        ...emptyConnection,
+        pageInfo: {
+          hasPreviousPage: pi.hasPreviousPage ?? false,
+          hasNextPage: pi.hasNextPage ?? false,
+          startCursor: pi.startCursor ?? '',
+          endCursor: pi.endCursor ?? ''
+        },
+        total: 0
+      };
     }
 
     const first = Math.min(args.first ?? 20, 100);
