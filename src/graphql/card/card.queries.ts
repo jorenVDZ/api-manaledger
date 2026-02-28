@@ -1,4 +1,5 @@
 import { GraphQLError } from 'graphql';
+import { connectionFromArraySlice, cursorToOffset } from 'graphql-relay';
 import { cardRepository } from '../../repositories/cardRepository';
 import { GraphQLContext } from '../graphqlContext';
 
@@ -44,7 +45,11 @@ export const cardQueries = {
   /**
    * Search cards by name (fuzzy matching)
    */
-  searchCards: async (_parent: any, args: { query: string; limit: number; offset: number }, context: GraphQLContext) => {
+  searchCards: async (
+    _parent: any,
+    args: { query: string; first?: number; after?: string },
+    context: GraphQLContext
+  ) => {
     if (!context.user) {
       throw new GraphQLError('Not authenticated', {
         extensions: { code: 'UNAUTHENTICATED' }
@@ -58,17 +63,21 @@ export const cardQueries = {
       });
     }
 
-    const limit = Math.min(args.limit, 100); // Cap at 100
-    const offset = args.offset || 0;
+    const first = Math.min(args.first ?? 20, 100);
+    const after = args.after;
+    const offset = after ? cursorToOffset(after) + 1 : 0;
 
     try {
-      const { cards, total } = await cardRepository.searchByName(searchQuery, limit, offset);
-      const hasMore = offset + limit < total;
+      const { cards, total } = await cardRepository.searchByName(searchQuery, first, offset);
+
+      const connection = connectionFromArraySlice(cards, args as any, {
+        sliceStart: offset,
+        arrayLength: total
+      });
 
       return {
-        cards,
-        total,
-        hasMore
+        ...connection,
+        total
       };
     } catch (error) {
       console.error('Error in searchCards resolver:', error);

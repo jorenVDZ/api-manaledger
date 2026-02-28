@@ -94,14 +94,26 @@ export const typeDefs = `#graphql
   Paginated cards response
   """
   type CardsConnection {
-    cards: [Card!]!
+    edges: [CardEdge!]!
     total: Int!
-    hasMore: Boolean!
+    pageInfo: PageInfo!
+  }
+
+  type PageInfo {
+    hasPreviousPage: Boolean!
+    hasNextPage: Boolean!
+    startCursor: String!
+    endCursor: String!
+  }
+
+  type CardEdge {
+    cursor: String!
+    node: Card!
   }
 
   type Query {
     card(scryfallId: ID!): Card!
-    searchCards(query: String!, limit: Int = 20, offset: Int = 0): CardsConnection!
+    searchCards(query: String!, first: Int = 20, after: String): CardsConnection!
     cardPrintings(scryfallId: ID!): [Card!]!
     getMyWantsLists: [WantsList!]!
     getWantsListById(id: ID!): WantsList
